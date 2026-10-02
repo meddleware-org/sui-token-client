@@ -34,6 +34,7 @@ export function buildPublishTransaction(args: BuildPublishArgs): Transaction {
     modules: [toBase64(args.moduleBytes)],
     dependencies: [MOVE_STDLIB, SUI_FRAMEWORK],
   })
+  if (!upgradeCap) throw new Error('publish returned no UpgradeCap')
 
   if (args.packagePolicy === 'immutable') {
     tx.moveCall({ target: `${SUI_FRAMEWORK}::package::make_immutable`, arguments: [upgradeCap] })
@@ -43,6 +44,7 @@ export function buildPublishTransaction(args: BuildPublishArgs): Transaction {
 
   if (args.feeMist > 0n) {
     const [fee] = tx.splitCoins(tx.gas, [args.feeMist])
+    if (!fee) throw new Error('splitCoins returned no coin')
     tx.transferObjects([fee], args.feeRecipient)
   }
 

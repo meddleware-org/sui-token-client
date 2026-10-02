@@ -9,7 +9,7 @@ function client(pages: { objects: { objectId: string; type: string }[] }[]) {
   const listOwnedObjects = vi.fn(async ({ cursor }: { cursor?: string | null }) => {
     const i = cursor ? Number(cursor) : 0
     const hasNextPage = i + 1 < pages.length
-    return { objects: pages[i].objects, hasNextPage, cursor: hasNextPage ? String(i + 1) : null }
+    return { objects: pages[i]!.objects, hasNextPage, cursor: hasNextPage ? String(i + 1) : null }
   })
   return { core: { listOwnedObjects } } satisfies OwnedObjectsClient
 }

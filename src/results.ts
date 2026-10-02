@@ -75,7 +75,7 @@ export function extractPublishResult(
   if (published.length !== 1) {
     throw new Error(`expected exactly one published package in the effects, found ${published.length}`)
   }
-  const packageId = normalizeSuiAddress(published[0].packageId!)
+  const packageId = normalizeSuiAddress(published[0]?.packageId ?? '')
   const created = objectChanges.filter((c) => c.type === 'created' && c.objectId && c.objectType)
 
   const treasuries = created.filter((c) => {
@@ -86,7 +86,8 @@ export function extractPublishResult(
     throw new Error(`expected exactly one TreasuryCap for a coin of ${packageId}, found ${treasuries.length}`)
   }
   const treasury = treasuries[0]
-  const coinType = treasuryCapCoinType(treasury.objectType)!
+  const coinType = treasury ? treasuryCapCoinType(treasury.objectType) : null
+  if (!treasury || !coinType) throw new Error('TreasuryCap without a coin type')
 
   const ofCoin = (module: string, name: string) =>
     created.find((c) => frameworkTypeArgument(c.objectType, module, name) === coinType)

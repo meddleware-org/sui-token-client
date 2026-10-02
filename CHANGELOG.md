@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2] - 2026-10-02
+
+### Fixed
+
+- A module named like an identifier the template module already uses (`coin`, `transfer`,
+  `string`, `init`, …) duplicated that identifier, so the publish failed bytecode verification
+  on-chain after the user paid gas. `validateModuleName` and `assertTokenConfig` now refuse it, the
+  patcher refuses any duplicate identifier, and `check:template` keeps the list
+  (`TEMPLATE_IMPORTED_IDENTIFIERS`) equal to the shipped module's.
+- A package named like a framework address (`sui`, `std`, `sui_system`, `bridge`, `deepbook`) is
+  refused (`validatePackageName`): the downloadable source package would not build.
+
+### Changed
+
+- `noUncheckedIndexedAccess` is on.
+
 ## [0.0.1] - 2026-10-02
 
 First release. The token logic moves here from `token-deployer-ui` (B7), which keeps its UI.

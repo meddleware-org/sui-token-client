@@ -59,6 +59,14 @@ if (!Buffer.from(serialize(decoded)).equals(mv)) fail('decode/encode round trip 
 for (const id of Object.values(IDENTIFIERS)) {
   if (!decoded.identifiers.includes(id)) fail(`identifier ${id} not in the module`)
 }
+// rules.ts lists the identifiers the module uses besides its own; module names must avoid them.
+const rulesSrc = readFileSync(new URL('../src/rules.ts', import.meta.url), 'utf8')
+const listed = /TEMPLATE_IMPORTED_IDENTIFIERS[^[]*\[([^\]]*)\]/.exec(rulesSrc)
+const listedIds = listed ? [...listed[1].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort() : []
+const actualIds = decoded.identifiers.filter((id) => !Object.values(IDENTIFIERS).includes(id)).sort()
+if (JSON.stringify(listedIds) !== JSON.stringify(actualIds)) {
+  fail(`TEMPLATE_IMPORTED_IDENTIFIERS in src/rules.ts must be exactly: ${actualIds.join(', ')}`)
+}
 const pool = decoded.constant_pool
 const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
 if (pool.filter((c) => c.type_ === 'U8' && same(c.data, [DEFAULTS.decimals])).length !== 1) {

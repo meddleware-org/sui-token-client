@@ -29,6 +29,10 @@ export {
   SAFE_TEXT,
   TOKEN_LIMITS,
   validateIdentifier,
+  validateModuleName,
+  validatePackageName,
+  TEMPLATE_IMPORTED_IDENTIFIERS,
+  FRAMEWORK_ADDRESS_NAMES,
 } from './rules.js'
 export {
   frameworkTypeArgument,

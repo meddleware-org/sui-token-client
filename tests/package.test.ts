@@ -69,7 +69,7 @@ describe('buildPackageFiles', () => {
 
   it('rewrites the licence header and README line for the 0BSD default, whatever the template ships with', () => {
     const f = buildPackageFiles({ config: { ...baseConfig, license: '0BSD', licenseName: 'BSD Zero Clause License' } })
-    const src = f['sources/mytoken.move']
+    const src = f['sources/mytoken.move']!
     expect(src.split('\n')[0]).toBe('// SPDX-License-Identifier: 0BSD')
     expect(src.split('\n')[1]).toBe('// Licensed under the 0BSD license; see the LICENSE file.')
     expect(src).not.toMatch(/CC0|public domain/)
@@ -108,7 +108,7 @@ describe('buildPackageFiles', () => {
       treasuryCapId: '0xT', metadataCapId: '0xM', currencyId: '0xC', upgradeCapId: undefined,
       digest: '0xDIG', feeRecipient: '0xFEE', feeMist: '500000000',
     }
-    const dep = buildPackageFiles({ config: baseConfig, result })['deployments.md']
+    const dep = buildPackageFiles({ config: baseConfig, result })['deployments.md']!
     // Package ID, caps, and currency are in the Testnet table
     expect(dep).toContain('| Package ID | `0xPKG` |')
     expect(dep).toContain('| TreasuryCap ID | `0xT` |')
@@ -133,7 +133,7 @@ describe('buildPackageFiles', () => {
       upgradeCapId: '0xUCAP',
       digest: '0xDIG', feeRecipient: '0xFEE', feeMist: '500000000',
     }
-    const dep = buildPackageFiles({ config: baseConfig, result })['deployments.md']
+    const dep = buildPackageFiles({ config: baseConfig, result })['deployments.md']!
     expect(dep).toContain('| UpgradeCap ID (burned) | `0xUCAP` |')
     expect(dep).toContain('| Immutability confirmed | No (pending) |')
   })
@@ -209,6 +209,6 @@ describe('generatePackageZip', () => {
     const entries = unzipSync(zip)
     expect(Object.keys(entries)).toContain('my_token/Move.toml')
     expect(Object.keys(entries)).toContain('my_token/sources/mytoken.move')
-    expect(strFromU8(entries['my_token/Move.toml'])).toContain('name = "my_token"')
+    expect(strFromU8(entries['my_token/Move.toml']!)).toContain('name = "my_token"')
   })
 })

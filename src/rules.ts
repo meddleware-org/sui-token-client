@@ -66,6 +66,40 @@ export function validateIdentifier(value: string): string | null {
   return null
 }
 
+/**
+ * Identifiers the compiled template module already uses besides its own module and struct names
+ * (the framework modules, types and functions it imports). A module named like one of them would
+ * duplicate an identifier, and the publish would fail bytecode verification on-chain after the user
+ * paid gas. `scripts/gen-template.mjs` checks this list against the shipped module.
+ */
+export const TEMPLATE_IMPORTED_IDENTIFIERS: ReadonlySet<string> = new Set([
+  'CurrencyInitializer', 'MetadataCap', 'String', 'TreasuryCap', 'TxContext', 'coin', 'coin_registry',
+  'dummy_field', 'finalize', 'init', 'new_currency_with_otw', 'public_transfer', 'sender', 'string',
+  'transfer', 'tx_context', 'utf8',
+])
+
+/**
+ * Named addresses the generated package's framework dependencies already define; a package named
+ * like one of them would not build from the downloadable source.
+ */
+export const FRAMEWORK_ADDRESS_NAMES: ReadonlySet<string> = new Set(['std', 'sui', 'sui_system', 'bridge', 'deepbook'])
+
+/** Validate a module name: an identifier that the template module does not already use. */
+export function validateModuleName(value: string): string | null {
+  const err = validateIdentifier(value)
+  if (err) return err
+  if (TEMPLATE_IMPORTED_IDENTIFIERS.has(value)) return `"${value}" is already used by the coin module`
+  return null
+}
+
+/** Validate a package name: an identifier that is not a framework address name. */
+export function validatePackageName(value: string): string | null {
+  const err = validateIdentifier(value)
+  if (err) return err
+  if (FRAMEWORK_ADDRESS_NAMES.has(value)) return `"${value}" is a Sui framework address name`
+  return null
+}
+
 /** Parse a whole-token supply ('' = 0) into a non-negative bigint, or null if invalid. */
 export function parseSupply(input: string): bigint | null {
   const s = input.trim()
@@ -86,13 +120,10 @@ export function isValidDecimals(decimals: number): boolean {
  * @throws {Error} naming the first invalid field.
  */
 export function assertTokenConfig(config: TokenConfig): void {
-  for (const [label, value] of [
-    ['package name', config.packageName],
-    ['module name', config.moduleName],
-  ] as const) {
-    const err = validateIdentifier(value)
-    if (err) throw new Error(`Invalid ${label}: ${err}`)
-  }
+  const packageErr = validatePackageName(config.packageName)
+  if (packageErr) throw new Error(`Invalid package name: ${packageErr}`)
+  const moduleErr = validateModuleName(config.moduleName)
+  if (moduleErr) throw new Error(`Invalid module name: ${moduleErr}`)
   if (config.structName !== deriveStructName(config.moduleName)) {
     throw new Error('Invalid struct name: must be the module name uppercased.')
   }

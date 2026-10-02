@@ -87,7 +87,7 @@ describe('deployToken', () => {
       config: baseConfig(), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
       gasBudget: 500_000_000n, executor: exec,
     })
-    const finalize = (exec.signAndExecute as ReturnType<typeof vi.fn>).mock.calls[1][0]
+    const finalize = (exec.signAndExecute as ReturnType<typeof vi.fn>).mock.calls[1]![0]
     expect(JSON.stringify(finalize.getData())).toContain('finalize_registration')
   })
 

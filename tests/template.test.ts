@@ -91,3 +91,13 @@ describe('patchTemplateModule', () => {
 })
 
 // Temporary test to check Walrus blob URL patching
+
+describe('patchTemplateModule identifier guard', () => {
+  it('refuses a module name that duplicates an identifier the template uses', async () => {
+    await (init as unknown as () => Promise<unknown>)()
+    const base = { structName: 'X', symbol: 'S', name: 'N', description: '', iconUrl: '', decimals: 6 }
+    await expect(patchTemplateModule({ ...base, moduleName: 'coin', structName: 'COIN' })).rejects.toThrow(/collides/)
+    await expect(patchTemplateModule({ ...base, moduleName: 'my_coin', structName: 'TreasuryCap' })).rejects.toThrow(/collides/)
+  })
+})
+

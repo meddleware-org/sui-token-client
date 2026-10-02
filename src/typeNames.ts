@@ -51,7 +51,7 @@ export function frameworkTypeArgument(type: unknown, module: string, name: strin
     return null
   }
   const [arg] = tag.typeParams
-  return typeof arg === 'string' ? null : normalizeStructTag(arg)
+  return arg === undefined || typeof arg === 'string' ? null : normalizeStructTag(arg)
 }
 
 /** The normalised package address a struct type is defined in, or null. */

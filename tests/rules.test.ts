@@ -8,6 +8,8 @@ import {
   parseSupply,
   TOKEN_LIMITS,
   validateIdentifier,
+  validateModuleName,
+  validatePackageName,
 } from '../src/rules.js'
 import type { TokenConfig } from '../src/types.js'
 
@@ -63,6 +65,16 @@ describe('assertTokenConfig', () => {
   it('rejects invalid identifiers and reserved words', () => {
     expect(bad({ packageName: 'My-Token' })).toThrow(/package name/)
     expect(bad({ moduleName: 'module', structName: 'MODULE' })).toThrow(/module name/)
+  })
+
+  it('rejects module names the template module already uses, and framework package names', () => {
+    // A duplicate identifier would fail bytecode verification on-chain, after gas is spent.
+    for (const name of ['coin', 'transfer', 'string', 'init', 'coin_registry', 'tx_context']) {
+      expect(bad({ moduleName: name, structName: deriveStructName(name) })).toThrow(/already used by the coin module/)
+    }
+    for (const name of ['sui', 'std', 'sui_system']) {
+      expect(bad({ packageName: name })).toThrow(/framework address name/)
+    }
   })
 
   it('requires symbol and name, and bounds every text field', () => {
@@ -122,5 +134,17 @@ describe('small helpers', () => {
     expect(parseSupply(' 42 ')).toBe(42n)
     expect(parseSupply('1.5')).toBeNull()
     expect(parseSupply('-1')).toBeNull()
+  })
+})
+
+describe('validateModuleName / validatePackageName', () => {
+  it('apply the identifier rules first, then the collision rules', () => {
+    expect(validateModuleName('my_coin')).toBeNull()
+    expect(validateModuleName('Coin')).toMatch(/lowercase/)
+    expect(validateModuleName('coin')).toMatch(/already used/)
+    expect(validatePackageName('my_token')).toBeNull()
+    expect(validatePackageName('sui')).toMatch(/framework/)
+    // A package may share a framework module's name; only addresses collide.
+    expect(validatePackageName('coin')).toBeNull()
   })
 })

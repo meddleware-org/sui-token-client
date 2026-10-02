@@ -77,11 +77,11 @@ describe('buildPublishTransaction', () => {
     const [split] = byKind(tx, 'SplitCoins')
     expect(split).toBeDefined()
     // must split from the gas coin, not an arbitrary coin
-    expect(split.SplitCoins.coin.$kind).toBe('GasCoin')
-    expect(pureU64(pureBytesOfInput(tx, split.SplitCoins.amounts[0]))).toBe(1_000_000_000n)
+    expect(split!.SplitCoins.coin.$kind).toBe('GasCoin')
+    expect(pureU64(pureBytesOfInput(tx, split!.SplitCoins.amounts[0]))).toBe(1_000_000_000n)
 
     const [transfer] = byKind(tx, 'TransferObjects')
-    expect(pureAddr(pureBytesOfInput(tx, transfer.TransferObjects.address))).toBe(recipient)
+    expect(pureAddr(pureBytesOfInput(tx, transfer!.TransferObjects.address))).toBe(recipient)
   })
 
   it('omits the fee split entirely when feeMist is 0', () => {
@@ -100,7 +100,7 @@ describe('buildPublishTransaction', () => {
     expect(byKind(tx, 'MoveCall')).toHaveLength(0)
     const [transfer] = byKind(tx, 'TransferObjects')
     // the only transfer is the UpgradeCap -> sender (no fee split here)
-    expect(pureAddr(pureBytesOfInput(tx, transfer.TransferObjects.address))).toBe(sender)
+    expect(pureAddr(pureBytesOfInput(tx, transfer!.TransferObjects.address))).toBe(sender)
   })
 })
 
@@ -152,7 +152,7 @@ describe('buildFinalizeTransaction', () => {
     const freeze = (byKind(tx, 'MoveCall')).filter(
       (c) => c.MoveCall.function === 'public_freeze_object',
     )
-    expect(freeze.some((c) => c.MoveCall.typeArguments[0].includes('coin::TreasuryCap'))).toBe(true)
+    expect(freeze.some((c) => c.MoveCall.typeArguments[0]!.includes('coin::TreasuryCap'))).toBe(true)
   })
 
   it('freezes the MetadataCap under the frozen metadata policy', () => {
@@ -160,7 +160,7 @@ describe('buildFinalizeTransaction', () => {
     const freeze = (byKind(tx, 'MoveCall')).filter(
       (c) => c.MoveCall.function === 'public_freeze_object',
     )
-    expect(freeze.some((c) => c.MoveCall.typeArguments[0].includes('coin_registry::MetadataCap'))).toBe(true)
+    expect(freeze.some((c) => c.MoveCall.typeArguments[0]!.includes('coin_registry::MetadataCap'))).toBe(true)
   })
 
   it('routes both caps to a different recipient when supply/metadata stay open', () => {

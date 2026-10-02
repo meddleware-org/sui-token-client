@@ -54,7 +54,9 @@ Two transactions are signed: the publish (with the fee and the package policy) a
 
 `assertTokenConfig` enforces, and `TOKEN_LIMITS` exposes for forms:
 
-- package and module names: Move identifiers (`[a-z][a-z0-9_]*`, ≤ 64, not reserved); the struct is
+- package and module names: Move identifiers (`[a-z][a-z0-9_]*`, ≤ 64, not reserved); a module
+  name may not be one the template module already uses (`TEMPLATE_IMPORTED_IDENTIFIERS`, e.g. `coin`,
+  `transfer`) and a package name may not be a framework address (`sui`, `std`, …); the struct is
   the module name uppercased;
 - symbol ≤ 32, name ≤ 64, description ≤ 256, icon URL ≤ 512 — printable ASCII without `"` or `\`;
 - icons: `https://` or `ipfs://` (or none);

@@ -18,6 +18,8 @@ deployer) keep only their UI, wallet wiring and form messages.
   `@meddleware/sui-token-template` devDependency. The generator checks the bytecode and source hashes
   against the package's `build-info.json`, a byte-exact decode/encode round trip, and that each
   identifier and default constant exists once. CI runs `check:template`.
+- **Template identifiers.** `TEMPLATE_IMPORTED_IDENTIFIERS` (rules.ts) must equal the shipped
+  module's identifiers besides its own (`check:template` fails otherwise); module names avoid them.
 - **One rule set.** `assertTokenConfig` (rules.ts) is called by the patcher, `deployToken` and the
   package generator. Decimals are 0–18 everywhere; text fields are printable ASCII without `"` or
   `\`, bounded by `TOKEN_LIMITS`; icons are `https://` or `ipfs://`.
@@ -33,7 +35,7 @@ deployer) keep only their UI, wallet wiring and form messages.
 
 ## Testing
 
-`npm test` (vitest, 76 tests): rules, type matching (look-alike packages, nested generics, long-form
+`npm test` (vitest, 79 tests): rules, type matching (look-alike packages, nested generics, long-form
 addresses), builders (exact PTB commands), result parsing, deploy flow with a mock executor, wasm
 initialisation, patching, Walrus-URL icons, package generation, paged token listing.
 `tests/abi-table.test.ts` fails if an exported builder is missing from the ABI table
