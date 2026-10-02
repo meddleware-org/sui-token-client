@@ -58,7 +58,8 @@ Two transactions are signed: the publish (with the fee and the package policy) a
   name may not be one the template module already uses (`TEMPLATE_IMPORTED_IDENTIFIERS`, e.g. `coin`,
   `transfer`) and a package name may not be a framework address (`sui`, `std`, …); the struct is
   the module name uppercased;
-- symbol ≤ 32, name ≤ 64, description ≤ 256, icon URL ≤ 512 — printable ASCII without `"` or `\`;
+- symbol ≤ 32, name ≤ 64, description ≤ 256, icon URL ≤ 512, package description ≤ 256, project
+  name ≤ 64 — printable ASCII without `"` or `\`;
 - icons: `https://` or `ipfs://` (or none);
 - decimals 0–18; initial supply × 10^decimals ≤ u64::MAX.
 

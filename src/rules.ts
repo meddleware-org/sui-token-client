@@ -14,6 +14,8 @@ export const TOKEN_LIMITS = Object.freeze({
   name: 64,
   description: 256,
   iconUrl: 512,
+  packageDescription: 256,
+  projectName: 64,
   decimals: Object.freeze({ min: 0, max: 18 }),
 })
 
@@ -132,6 +134,9 @@ export function assertTokenConfig(config: TokenConfig): void {
     ['name', config.name, TOKEN_LIMITS.name, true],
     ['description', config.description, TOKEN_LIMITS.description, false],
     ['icon URL', config.iconUrl, TOKEN_LIMITS.iconUrl, false],
+    // Written into the generated source (a `///` doc comment) and docs: one safe line each.
+    ['package description', config.packageDescription, TOKEN_LIMITS.packageDescription, false],
+    ['project name', config.projectName, TOKEN_LIMITS.projectName, false],
   ] as const) {
     if (required && !value.trim()) throw new Error(`Invalid ${label}: required.`)
     if (value.length > max) throw new Error(`Invalid ${label}: ${max} characters maximum.`)

@@ -35,7 +35,7 @@ deployer) keep only their UI, wallet wiring and form messages.
 
 ## Testing
 
-`npm test` (vitest, 79 tests): rules, type matching (look-alike packages, nested generics, long-form
+`npm test` (vitest, 80 tests): rules, type matching (look-alike packages, nested generics, long-form
 addresses), builders (exact PTB commands), result parsing, deploy flow with a mock executor, wasm
 initialisation, patching, Walrus-URL icons, package generation, paged token listing.
 `tests/abi-table.test.ts` fails if an exported builder is missing from the ABI table

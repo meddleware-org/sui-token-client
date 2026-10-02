@@ -67,6 +67,14 @@ describe('assertTokenConfig', () => {
     expect(bad({ moduleName: 'module', structName: 'MODULE' })).toThrow(/module name/)
   })
 
+  it('keeps the package description and project name to one safe line', () => {
+    // The description lands in a `///` comment of the generated source; a newline would escape it.
+    expect(bad({ packageDescription: 'ok\npublic fun steal() {}' })).toThrow(/package description/)
+    expect(bad({ projectName: 'a"b' })).toThrow(/project name/)
+    expect(bad({ packageDescription: 'x'.repeat(TOKEN_LIMITS.packageDescription + 1) })).toThrow(/package description/)
+    expect(() => assertTokenConfig({ ...good, packageDescription: 'A fine token.', projectName: 'My Project' })).not.toThrow()
+  })
+
   it('rejects module names the template module already uses, and framework package names', () => {
     // A duplicate identifier would fail bytecode verification on-chain, after gas is spent.
     for (const name of ['coin', 'transfer', 'string', 'init', 'coin_registry', 'tx_context']) {
