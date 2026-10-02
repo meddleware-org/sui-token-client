@@ -50,19 +50,51 @@ export interface PendingFinalize {
 }
 
 /**
+ * Something failed after the publish transaction executed: the coin exists on-chain, so the caller
+ * must not run a fresh deploy (it would publish a second coin and pay the fee again).
+ * `publishDigest` identifies the publish. Subclasses say what remains to do.
+ */
+export class PublishedError extends Error {
+  readonly publishDigest: string
+
+  constructor(message: string, publishDigest: string, cause?: unknown) {
+    super(message, { cause })
+    this.name = 'PublishedError'
+    this.publishDigest = publishDigest
+  }
+}
+
+/**
  * The coin was published, but the finalize step (currency registration, initial supply, supply and
  * metadata policies, cap routing) did not complete — the second signature was refused or the
  * transaction failed. `pending` lets the caller retry with {@link finalizeToken}; until then the
  * caps stay with the sender and the chosen policies are not applied.
  */
-export class DeployIncompleteError extends Error {
+export class DeployIncompleteError extends PublishedError {
   readonly pending: PendingFinalize
 
   constructor(pending: PendingFinalize, cause: unknown) {
     const reason = cause instanceof Error ? cause.message : String(cause)
-    super(`Published ${pending.result.coinType}, but finishing its setup failed: ${reason}`, { cause })
+    super(`Published ${pending.result.coinType}, but finishing its setup failed: ${reason}`, pending.result.digest, cause)
     this.name = 'DeployIncompleteError'
     this.pending = pending
+  }
+}
+
+/**
+ * The finalize transaction executed successfully but could not be confirmed (e.g. indexing timed
+ * out). The coin is fully set up; do **not** retry — `result` is the deploy's outcome.
+ */
+export class DeployUnconfirmedError extends PublishedError {
+  readonly result: PublishResult
+  readonly digest: string
+
+  constructor(result: PublishResult, digest: string, cause: unknown) {
+    const reason = cause instanceof Error ? cause.message : String(cause)
+    super(`Finalized ${result.coinType} (transaction ${digest}), but confirmation failed: ${reason}`, result.digest, cause)
+    this.name = 'DeployUnconfirmedError'
+    this.result = result
+    this.digest = digest
   }
 }
 
@@ -70,7 +102,8 @@ export class DeployIncompleteError extends Error {
  * Run (or retry) the finalize step of a published token: register the currency, mint the initial
  * supply, apply the supply and metadata policies and route the caps. Resolves once confirmed.
  *
- * @throws {Error} if the finalize transaction fails or returns no success status.
+ * @throws {Error} if the finalize transaction fails or returns no success status (retryable).
+ * @throws {DeployUnconfirmedError} if it executed but could not be confirmed (do not retry).
  */
 export async function finalizeToken(args: {
   pending: PendingFinalize
@@ -117,10 +150,7 @@ async function confirmFinalize(
   try {
     await args.executor.waitForTransaction(digest)
   } catch (e) {
-    const reason = e instanceof Error ? e.message : String(e)
-    throw new Error(`Finalized ${args.pending.result.coinType} (transaction ${digest}), but confirmation failed: ${reason}`, {
-      cause: e,
-    })
+    throw new DeployUnconfirmedError(args.pending.result, digest, e)
   }
   args.onStep?.('done')
   return args.pending.result
@@ -133,8 +163,10 @@ async function confirmFinalize(
  *
  * @throws {Error} if the config breaks a token rule, the publish fails, or its effects do not name
  *   exactly one package and one TreasuryCap of its coin.
- * @throws {DeployIncompleteError} if the coin was published but the finalize step failed; retry with
- *   {@link finalizeToken} and the error's `pending`.
+ * @throws {DeployIncompleteError} if the coin was published but not finished (publish confirmation
+ *   or the finalize step failed); finish with {@link finalizeToken} and the error's `pending`.
+ * @throws {DeployUnconfirmedError} if everything executed but the finalize was not confirmed; the
+ *   coin is set up — do not retry.
  */
 export async function deployToken(args: DeployArgs): Promise<PublishResult> {
   const { executor, onStep } = args
@@ -155,22 +187,29 @@ export async function deployToken(args: DeployArgs): Promise<PublishResult> {
     }),
   )
   assertSuccess(pub, 'Publish')
-  onStep?.('confirming')
-  await executor.waitForTransaction(pub.digest)
-
-  const { result, currencyRef } = extractPublishResult(pub.objectChanges ?? [], {
-    network: args.network,
-    digest: pub.digest,
-    feeRecipient: args.feeTreasury,
-    feeMist: args.feeMist,
-  })
-  if (!result.treasuryCapId || !result.metadataCapId) {
-    throw new Error('Published, but the TreasuryCap or MetadataCap is missing from the effects.')
+  // The publish executed: from here on the coin exists, so every failure must say so (and how to
+  // finish) rather than invite a second deploy.
+  let parsed: ReturnType<typeof extractPublishResult>
+  try {
+    parsed = extractPublishResult(pub.objectChanges ?? [], {
+      network: args.network,
+      digest: pub.digest,
+      feeRecipient: args.feeTreasury,
+      feeMist: args.feeMist,
+    })
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e)
+    throw new PublishedError(`Published (transaction ${pub.digest}), but its effects could not be read: ${reason}`, pub.digest, e)
   }
-
+  const { result, currencyRef } = parsed
+  if (!result.treasuryCapId || !result.metadataCapId) {
+    throw new PublishedError(
+      `Published (transaction ${pub.digest}), but the TreasuryCap or MetadataCap is missing from the effects.`,
+      pub.digest,
+    )
+  }
   // Always finalize: `finalize_registration` promotes the pending Currency<T> to a shared object so
-  // wallets read the coin's decimals; without it they show raw base units. A failure here leaves a
-  // published coin, so it is reported with what the caller needs to retry.
+  // wallets read the coin's decimals; without it they show raw base units.
   const pending: PendingFinalize = {
     config: { ...config, recipient: config.recipient || args.sender },
     result,
@@ -178,6 +217,13 @@ export async function deployToken(args: DeployArgs): Promise<PublishResult> {
     sender: args.sender,
     gasBudget: args.gasBudget,
   }
+  onStep?.('confirming')
+  try {
+    await executor.waitForTransaction(pub.digest)
+  } catch (e) {
+    throw new DeployIncompleteError(pending, e)
+  }
+
   let digest: string
   try {
     digest = await executeFinalize({ pending, executor, onStep })

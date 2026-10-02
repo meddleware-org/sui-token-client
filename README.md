@@ -16,7 +16,7 @@ npm install @meddleware/sui-token-client @mysten/sui
 | --- | --- |
 | `@meddleware/sui-token-client` | `TokenConfig` and friends, `assertTokenConfig`, `TOKEN_LIMITS`, the identifier/supply/icon rules, `buildPublishTransaction`, `buildFinalizeTransaction`, `extractPublishResult`, `toSuiTxResult`, `listMyTokens`, exact type helpers |
 | `@meddleware/sui-token-client/template` | `configureTemplateWasm`, `initTemplateWasm`, `patchTemplateModule`, `patchTokenModule`, the generated `TEMPLATE_*` artefact and `TEMPLATE_BUILD_INFO` |
-| `@meddleware/sui-token-client/deploy` | `deployToken`, `finalizeToken`, `DeployIncompleteError`, `Executor`, `DeployStep` |
+| `@meddleware/sui-token-client/deploy` | `deployToken`, `finalizeToken`, `PublishedError`, `DeployIncompleteError`, `DeployUnconfirmedError`, `Executor`, `DeployStep` |
 | `@meddleware/sui-token-client/package` | `buildPackageFiles`, `generatePackageZip` |
 
 The main entry loads no wasm, bytecode or zip code, so lists and forms stay light.
@@ -67,6 +67,10 @@ try {
 ```
 
 Until then the caps stay with the sender and the supply and metadata policies are not applied.
+
+Every failure after the publish executed is a `PublishedError` (with `publishDigest`): never answer
+one with a fresh deploy, which would publish a second coin. `DeployUnconfirmedError` means the
+setup executed but was not confirmed — show its `result`; do not retry.
 
 ## Rules
 

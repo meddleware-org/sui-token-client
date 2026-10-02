@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2026-10-02
+
+### Changed
+
+- Every failure after the publish executed is a `PublishedError` (with `publishDigest`), so callers
+  can tell "a coin exists — do not deploy again" from "nothing happened":
+  - `DeployIncompleteError` (a `PublishedError`) now also covers a publish whose confirmation failed;
+  - the new `DeployUnconfirmedError` (a `PublishedError`, with `result`) reports a finalize that
+    executed but was not confirmed — the coin is set up, do not retry;
+  - unreadable publish effects throw a plain `PublishedError` naming the transaction.
+
 ## [0.0.4] - 2026-10-02
 
 ### Added

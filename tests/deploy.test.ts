@@ -1,5 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
-import { DeployIncompleteError, deployToken, finalizeToken, toSuiTxResult } from '../src/deploy.js'
+import {
+  DeployIncompleteError,
+  DeployUnconfirmedError,
+  PublishedError,
+  deployToken,
+  finalizeToken,
+  toSuiTxResult,
+} from '../src/deploy.js'
 import type { CoreExecutionResult, Executor, SuiTxResult } from '../src/deploy.js'
 import { extractPublishResult } from '../src/index.js'
 import type { TokenConfig } from '../src/types.js'
@@ -190,7 +197,33 @@ describe('deployToken — interrupted between publish and finalize', () => {
       config: baseConfig(), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury, gasBudget: 1n, executor: exec,
     }).catch((e: unknown) => e)
     expect(err).not.toBeInstanceOf(DeployIncompleteError)
+    expect(err).toBeInstanceOf(DeployUnconfirmedError)
+    expect((err as DeployUnconfirmedError).result.coinType).toBe(COIN)
     expect((err as Error).message).toMatch(/Finalized .*but confirmation failed: timeout/)
+  })
+
+  it('a publish confirmation failure is incomplete (finish later), not a fresh-deploy failure', async () => {
+    const exec = mockExecutor({
+      waitForTransaction: vi.fn<Executor['waitForTransaction']>().mockRejectedValueOnce(new Error('timeout')),
+    })
+    const err = await deployToken({
+      config: baseConfig(), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury, gasBudget: 1n, executor: exec,
+    }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(DeployIncompleteError)
+    expect(exec.signAndExecute).toHaveBeenCalledTimes(1)
+  })
+
+  it('unreadable publish effects are reported as published, with the digest', async () => {
+    const exec = mockExecutor({
+      signAndExecute: vi.fn<SignAndExecute>(async () => ({
+        digest: '0xPUB', objectChanges: [], effects: { status: { status: 'success' } },
+      })),
+    })
+    const err = await deployToken({
+      config: baseConfig(), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury, gasBudget: 1n, executor: exec,
+    }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(PublishedError)
+    expect((err as PublishedError).publishDigest).toBe('0xPUB')
   })
 
   it('does not wrap a publish failure (nothing was published)', async () => {
@@ -198,7 +231,7 @@ describe('deployToken — interrupted between publish and finalize', () => {
     const err = await deployToken({
       config: baseConfig(), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury, gasBudget: 1n, executor: exec,
     }).catch((e: unknown) => e)
-    expect(err).not.toBeInstanceOf(DeployIncompleteError)
+    expect(err).not.toBeInstanceOf(PublishedError)
   })
 })
 
