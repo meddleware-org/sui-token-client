@@ -1,18 +1,77 @@
 {
   "name": "@meddleware/sui-token-client",
-  "version": "0.0.0",
-  "description": "Sui token client for @meddleware/sui-token-template: bytecode patching, publish/finalize PTBs, result parsing and package generation.",
-  "license": "0BSD",
+  "version": "0.0.1",
+  "homepage": "https://dev.meddleware.co.uk/sui/",
+  "type": "module",
+  "description": "Sui token client for @meddleware/sui-token-template: Move rules, bytecode patching, publish/finalize PTBs, result parsing, owned-token listing and package generation.",
   "author": "MeddleWare <dev@meddleware.co.uk>",
+  "license": "0BSD",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/meddleware-org/sui-token-client.git"
   },
+  "keywords": [
+    "sui",
+    "coin",
+    "token",
+    "move",
+    "web3"
+  ],
+  "files": [
+    "src",
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    },
+    "./template": {
+      "types": "./dist/template/index.d.ts",
+      "default": "./src/template/index.ts"
+    },
+    "./deploy": {
+      "types": "./dist/deploy.d.ts",
+      "default": "./src/deploy.ts"
+    },
+    "./package": {
+      "types": "./dist/package.d.ts",
+      "default": "./src/package.ts"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
+    "gen:template": "node scripts/gen-template.mjs",
+    "check:template": "node scripts/gen-template.mjs --check",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e:localnet": "node --import ./scripts/ts-resolve.mjs scripts/e2e-localnet.mjs",
+    "lint:js": "eslint .",
+    "lint": "npm run lint:js"
+  },
+  "dependencies": {
+    "@mysten/move-bytecode-template": "~0.4.1",
+    "@mysten/sui": "^2.33.1",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@meddleware/sui-token-template": "1.0.6",
+    "@types/node": "~24.12.2",
+    "eslint": "^10.11.0",
+    "jiti": "^2.7.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "~5.0.2"
+  },
   "publishConfig": {
     "access": "public"
   },
-  "files": [
-    "README.md",
-    "LICENSE"
+  "browserslist": [
+    "> 0.5%",
+    "last 2 versions",
+    "not dead"
   ]
 }
