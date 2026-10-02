@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.4] - 2026-10-02
+
+### Added
+
+- **Recovery between publish and finalize.** When the coin is published but the finalize step fails
+  (the second signature is refused, or the transaction fails), `deployToken` throws
+  `DeployIncompleteError` whose `pending` holds the config, the publish result and the currency
+  reference; `finalizeToken({ pending, executor })` finishes the setup later (currency registration,
+  initial supply, supply and metadata policies, cap routing). A finalize that executed but could not
+  be confirmed is reported as such and never offered for retry. Proven on localnet
+  (`e2e:localnet`: refuse once, finish, supply minted, fixed-supply cap frozen).
 
 ### Changed
 

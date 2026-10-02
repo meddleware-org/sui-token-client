@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { deployToken, toSuiTxResult } from '../src/deploy.js'
+import { DeployIncompleteError, deployToken, finalizeToken, toSuiTxResult } from '../src/deploy.js'
 import type { CoreExecutionResult, Executor, SuiTxResult } from '../src/deploy.js'
 import { extractPublishResult } from '../src/index.js'
 import type { TokenConfig } from '../src/types.js'
@@ -115,6 +115,90 @@ describe('deployToken', () => {
         gasBudget: 1n, executor: exec,
       }),
     ).rejects.toThrow(/no effects status returned/)
+  })
+})
+
+describe('deployToken — interrupted between publish and finalize', () => {
+  const okPublish = { digest: '0xPUB', objectChanges: publishChanges(COIN), effects: { status: { status: 'success' } } }
+
+  it('reports a refused finalize as DeployIncompleteError with what is needed to retry', async () => {
+    const exec = mockExecutor({
+      signAndExecute: vi
+        .fn<SignAndExecute>()
+        .mockResolvedValueOnce(okPublish)
+        .mockRejectedValueOnce(new Error('User rejected the request')),
+    })
+    const err = await deployToken({
+      config: baseConfig({ supplyPolicy: 'fixed' }), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
+      gasBudget: 500_000_000n, executor: exec,
+    }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(DeployIncompleteError)
+    const { pending } = err as DeployIncompleteError
+    expect((err as Error).message).toMatch(/Published .*mytoken::MYTOKEN, but finishing its setup failed: User rejected/)
+    expect(pending.result).toMatchObject({ packageId: PKG, coinType: COIN, treasuryCapId: '0xT', metadataCapId: '0xM' })
+    expect(pending.currencyRef).toEqual({ objectId: '0xC', version: '1', digest: 'CURRENCYDIGEST' })
+    expect(pending.config).toMatchObject({ structName: 'MYTOKEN', recipient: sender, supplyPolicy: 'fixed' })
+  })
+
+  it('reports a failed finalize transaction the same way', async () => {
+    const exec = mockExecutor({
+      signAndExecute: vi
+        .fn<SignAndExecute>()
+        .mockResolvedValueOnce(okPublish)
+        .mockResolvedValueOnce({ digest: '0xFIN', objectChanges: [], effects: { status: { status: 'failure', error: 'MoveAbort' } } }),
+    })
+    await expect(
+      deployToken({ config: baseConfig(), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury, gasBudget: 1n, executor: exec }),
+    ).rejects.toBeInstanceOf(DeployIncompleteError)
+  })
+
+  it('finalizeToken finishes a pending deploy with one more signature', async () => {
+    const first = mockExecutor({
+      signAndExecute: vi.fn<SignAndExecute>().mockResolvedValueOnce(okPublish).mockRejectedValueOnce(new Error('rejected')),
+    })
+    const err = (await deployToken({
+      config: baseConfig({ supplyPolicy: 'fixed' }), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
+      gasBudget: 500_000_000n, executor: first,
+    }).catch((e: unknown) => e)) as DeployIncompleteError
+
+    const retry = mockExecutor()
+    const steps: string[] = []
+    // The fixed-supply freeze serialises the TreasuryCap id, so give the caps real ids here.
+    const pending = {
+      ...err.pending,
+      result: { ...err.pending.result, treasuryCapId: '0x' + 'a'.repeat(64), metadataCapId: '0x' + 'b'.repeat(64) },
+      currencyRef: { objectId: '0x' + 'c'.repeat(64), version: '1', digest: '11111111111111111111111111111111' },
+    }
+    const result = await finalizeToken({ pending, executor: retry, onStep: (s) => steps.push(s) })
+    expect(result.coinType).toBe(COIN)
+    const calls = (retry.signAndExecute as ReturnType<typeof vi.fn>).mock.calls
+    expect(calls).toHaveLength(1)
+    const data = JSON.stringify(calls[0]![0].getData())
+    expect(data).toContain('finalize_registration')
+    expect(data).toContain('public_freeze_object') // the fixed-supply policy is applied on retry
+    expect(steps).toEqual(['finalizing', 'confirming-finalize', 'done'])
+  })
+
+  it('does not invite a retry when the finalize executed but its confirmation failed', async () => {
+    const exec = mockExecutor({
+      waitForTransaction: vi
+        .fn<Executor['waitForTransaction']>()
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('timeout')),
+    })
+    const err = await deployToken({
+      config: baseConfig(), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury, gasBudget: 1n, executor: exec,
+    }).catch((e: unknown) => e)
+    expect(err).not.toBeInstanceOf(DeployIncompleteError)
+    expect((err as Error).message).toMatch(/Finalized .*but confirmation failed: timeout/)
+  })
+
+  it('does not wrap a publish failure (nothing was published)', async () => {
+    const exec = mockExecutor({ signAndExecute: vi.fn<SignAndExecute>().mockRejectedValueOnce(new Error('rejected')) })
+    const err = await deployToken({
+      config: baseConfig(), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury, gasBudget: 1n, executor: exec,
+    }).catch((e: unknown) => e)
+    expect(err).not.toBeInstanceOf(DeployIncompleteError)
   })
 })
 

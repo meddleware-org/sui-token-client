@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // Real-chain end-to-end check against a local network (`sui start --with-faucet --force-regenesis`,
 // gRPC on :9000, faucet on :9123). Uses only the package's public API: deployToken with a keypair
-// executor, then listMyTokens and a balance check. Spends nothing real.
+// executor, a refused-finalize recovery through finalizeToken, then listMyTokens and balance checks. Spends nothing real.
 //
 //   npm run e2e:localnet     (RPC_URL / FAUCET_URL override the defaults)
 import { requestSuiFromFaucetV2 } from '@mysten/sui/faucet'
 import { SuiGrpcClient } from '@mysten/sui/grpc'
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 
-const { deployToken, toSuiTxResult } = await import('../src/deploy.ts')
+const { DeployIncompleteError, deployToken, finalizeToken, toSuiTxResult } = await import('../src/deploy.ts')
 const { listMyTokens } = await import('../src/tokens.ts')
 const { buildPackageFiles } = await import('../src/package.ts')
 
@@ -86,4 +86,39 @@ const files = buildPackageFiles({ config: { ...config, structName: 'E2ETOKEN' },
 if (files['Published.toml']) fail('a localnet result must not produce Published.toml')
 if (!files['deployments.md'].includes(result.packageId)) fail('deployments.md lacks the package id')
 
-console.log('e2e-localnet: OK — publish, finalize, balance, listMyTokens and package generation')
+// Recovery: refuse the finalize signature, then finish the published coin with finalizeToken.
+let refused = false
+const refusingOnce = {
+  ...executor,
+  async signAndExecute(transaction) {
+    if (refused === false && JSON.stringify(transaction.getData()).includes('finalize_registration')) {
+      refused = true
+      throw new Error('User rejected the request')
+    }
+    return executor.signAndExecute(transaction)
+  },
+}
+let pending = null
+try {
+  await deployToken({
+    config: { ...config, packageName: 'e2e_retry', moduleName: 'e2eretry', symbol: 'RTY', supplyPolicy: 'fixed' },
+    network: 'localnet',
+    sender,
+    feeMist: 0n,
+    feeTreasury: '0x' + '9'.repeat(64),
+    gasBudget: 500_000_000n,
+    executor: refusingOnce,
+  })
+  fail('a refused finalize did not raise DeployIncompleteError')
+} catch (e) {
+  if (!(e instanceof DeployIncompleteError)) throw e
+  pending = e.pending
+}
+const finished = await finalizeToken({ pending, executor })
+const retried = await client.getBalance({ owner: sender, coinType: finished.coinType })
+if (BigInt(retried.balance.balance) !== 1_000n * 10n ** 6n) fail(`retry minted ${retried.balance.balance}, expected 1000 tokens`)
+const cap = await client.getObject({ objectId: finished.treasuryCapId })
+if (cap.object?.owner?.$kind !== 'Immutable') fail('fixed supply: the TreasuryCap was not frozen on retry')
+console.log(`recovered ${finished.coinType}: finalize refused once, finished with finalizeToken (supply minted, cap frozen)`)
+
+console.log('e2e-localnet: OK — publish, finalize, recovery, balance, listMyTokens and package generation')

@@ -26,6 +26,9 @@ deployer) keep only their UI, wallet wiring and form messages.
 - **Exact types.** Results and token listing compare parsed, normalised struct tags (typeNames.ts),
   never substrings. A TreasuryCap counts only if it is `0x2::coin::TreasuryCap<T>` and `T` is defined
   in the package the transaction published.
+- **A published coin is never stranded.** A finalize that fails before execution throws
+  `DeployIncompleteError` with `pending` for `finalizeToken`; a confirmation failure after execution
+  is a plain error (retrying would fail).
 - **No silent truncation.** `listMyTokens` reads every page or throws past `maxPages`.
 - **No environment reads.** No `import.meta.env`, no logging of transactions; the caller supplies the
   network, fee, treasury, gas budget and executor.
@@ -35,7 +38,7 @@ deployer) keep only their UI, wallet wiring and form messages.
 
 ## Testing
 
-`npm test` (vitest, 80 tests): rules, type matching (look-alike packages, nested generics, long-form
+`npm test` (vitest, 85 tests): rules, type matching (look-alike packages, nested generics, long-form
 addresses), builders (exact PTB commands), result parsing, deploy flow with a mock executor, wasm
 initialisation, patching, Walrus-URL icons, package generation, paged token listing.
 `tests/abi-table.test.ts` fails if an exported builder is missing from the ABI table

@@ -16,7 +16,7 @@ npm install @meddleware/sui-token-client @mysten/sui
 | --- | --- |
 | `@meddleware/sui-token-client` | `TokenConfig` and friends, `assertTokenConfig`, `TOKEN_LIMITS`, the identifier/supply/icon rules, `buildPublishTransaction`, `buildFinalizeTransaction`, `extractPublishResult`, `toSuiTxResult`, `listMyTokens`, exact type helpers |
 | `@meddleware/sui-token-client/template` | `configureTemplateWasm`, `initTemplateWasm`, `patchTemplateModule`, `patchTokenModule`, the generated `TEMPLATE_*` artefact and `TEMPLATE_BUILD_INFO` |
-| `@meddleware/sui-token-client/deploy` | `deployToken`, `Executor`, `DeployStep` |
+| `@meddleware/sui-token-client/deploy` | `deployToken`, `finalizeToken`, `DeployIncompleteError`, `Executor`, `DeployStep` |
 | `@meddleware/sui-token-client/package` | `buildPackageFiles`, `generatePackageZip` |
 
 The main entry loads no wasm, bytecode or zip code, so lists and forms stay light.
@@ -49,6 +49,24 @@ const result = await deployToken({
 
 Two transactions are signed: the publish (with the fee and the package policy) and the finalize
 (currency registration, initial mint, supply and metadata policies, caps to the recipient).
+
+
+If the coin is published but the second signature (finalize) is refused or fails, `deployToken`
+throws `DeployIncompleteError`. Its `pending` field finishes the setup later — offer the user a
+retry:
+
+```ts
+import { DeployIncompleteError, finalizeToken } from '@meddleware/sui-token-client/deploy'
+
+try {
+  await deployToken({ /* … */ })
+} catch (e) {
+  if (e instanceof DeployIncompleteError) await finalizeToken({ pending: e.pending, executor })
+  else throw e
+}
+```
+
+Until then the caps stay with the sender and the supply and metadata policies are not applied.
 
 ## Rules
 

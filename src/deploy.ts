@@ -5,7 +5,7 @@ import type { Transaction } from '@mysten/sui/transactions'
 import { extractPublishResult, type SuiTxResult } from './results.js'
 import { deriveStructName } from './rules.js'
 import { patchTokenModule } from './template/patch.js'
-import { buildFinalizeTransaction, buildPublishTransaction } from './transactions.js'
+import { buildFinalizeTransaction, buildPublishTransaction, type CurrencyRef } from './transactions.js'
 import type { PublishResult, TokenConfig, TokenNetwork } from './types.js'
 
 /** Signs and runs transactions for {@link deployToken} (a wallet adapter, or a keypair in tests). */
@@ -37,13 +37,104 @@ function assertSuccess(res: SuiTxResult, what: string): void {
   }
 }
 
+/** Everything needed to finish a published token with {@link finalizeToken}. */
+export interface PendingFinalize {
+  /** The validated config (struct name derived, recipient defaulted to the sender). */
+  config: TokenConfig
+  /** The publish result: package, coin type and the caps the finalize step acts on. */
+  result: PublishResult
+  /** The pending `Currency<T>`'s reference from the publish effects. */
+  currencyRef?: CurrencyRef
+  sender: string
+  gasBudget: bigint
+}
+
+/**
+ * The coin was published, but the finalize step (currency registration, initial supply, supply and
+ * metadata policies, cap routing) did not complete — the second signature was refused or the
+ * transaction failed. `pending` lets the caller retry with {@link finalizeToken}; until then the
+ * caps stay with the sender and the chosen policies are not applied.
+ */
+export class DeployIncompleteError extends Error {
+  readonly pending: PendingFinalize
+
+  constructor(pending: PendingFinalize, cause: unknown) {
+    const reason = cause instanceof Error ? cause.message : String(cause)
+    super(`Published ${pending.result.coinType}, but finishing its setup failed: ${reason}`, { cause })
+    this.name = 'DeployIncompleteError'
+    this.pending = pending
+  }
+}
+
+/**
+ * Run (or retry) the finalize step of a published token: register the currency, mint the initial
+ * supply, apply the supply and metadata policies and route the caps. Resolves once confirmed.
+ *
+ * @throws {Error} if the finalize transaction fails or returns no success status.
+ */
+export async function finalizeToken(args: {
+  pending: PendingFinalize
+  executor: Executor
+  onStep?: (step: DeployStep) => void
+}): Promise<PublishResult> {
+  const digest = await executeFinalize(args)
+  return confirmFinalize(args, digest)
+}
+
+/** Sign and execute the finalize transaction; resolves with its digest once it succeeded. */
+async function executeFinalize(args: {
+  pending: PendingFinalize
+  executor: Executor
+  onStep?: (step: DeployStep) => void
+}): Promise<string> {
+  const { pending, executor, onStep } = args
+  const { result } = pending
+  if (!result.treasuryCapId || !result.metadataCapId) {
+    throw new Error('Published, but the TreasuryCap or MetadataCap is missing from the effects.')
+  }
+  onStep?.('finalizing')
+  const fin = await executor.signAndExecute(
+    buildFinalizeTransaction({
+      config: pending.config,
+      coinType: result.coinType,
+      treasuryCapId: result.treasuryCapId,
+      metadataCapId: result.metadataCapId,
+      currencyRef: pending.currencyRef,
+      sender: pending.sender,
+      gasBudget: pending.gasBudget,
+    }),
+  )
+  assertSuccess(fin, 'Finalize')
+  return fin.digest
+}
+
+/** Wait for an executed finalize. A failure here is not a reason to retry: the setup is on-chain. */
+async function confirmFinalize(
+  args: { pending: PendingFinalize; executor: Executor; onStep?: (step: DeployStep) => void },
+  digest: string,
+): Promise<PublishResult> {
+  args.onStep?.('confirming-finalize')
+  try {
+    await args.executor.waitForTransaction(digest)
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e)
+    throw new Error(`Finalized ${args.pending.result.coinType} (transaction ${digest}), but confirmation failed: ${reason}`, {
+      cause: e,
+    })
+  }
+  args.onStep?.('done')
+  return args.pending.result
+}
+
 /**
  * Deploy a token end to end: patch the template, publish it (with the fee and the package policy),
  * then finalize — register the currency, mint, apply the supply and metadata policies and route the
  * caps. Resolves once the finalize transaction is confirmed.
  *
- * @throws {Error} if the config breaks a token rule, either transaction fails, or the publish
- *   effects do not name exactly one package and one TreasuryCap of its coin.
+ * @throws {Error} if the config breaks a token rule, the publish fails, or its effects do not name
+ *   exactly one package and one TreasuryCap of its coin.
+ * @throws {DeployIncompleteError} if the coin was published but the finalize step failed; retry with
+ *   {@link finalizeToken} and the error's `pending`.
  */
 export async function deployToken(args: DeployArgs): Promise<PublishResult> {
   const { executor, onStep } = args
@@ -78,25 +169,23 @@ export async function deployToken(args: DeployArgs): Promise<PublishResult> {
   }
 
   // Always finalize: `finalize_registration` promotes the pending Currency<T> to a shared object so
-  // wallets read the coin's decimals; without it they show raw base units.
-  onStep?.('finalizing')
-  const fin = await executor.signAndExecute(
-    buildFinalizeTransaction({
-      config: { ...config, recipient: config.recipient || args.sender },
-      coinType: result.coinType,
-      treasuryCapId: result.treasuryCapId,
-      metadataCapId: result.metadataCapId,
-      currencyRef,
-      sender: args.sender,
-      gasBudget: args.gasBudget,
-    }),
-  )
-  assertSuccess(fin, 'Finalize')
-  onStep?.('confirming-finalize')
-  await executor.waitForTransaction(fin.digest)
-
-  onStep?.('done')
-  return result
+  // wallets read the coin's decimals; without it they show raw base units. A failure here leaves a
+  // published coin, so it is reported with what the caller needs to retry.
+  const pending: PendingFinalize = {
+    config: { ...config, recipient: config.recipient || args.sender },
+    result,
+    currencyRef,
+    sender: args.sender,
+    gasBudget: args.gasBudget,
+  }
+  let digest: string
+  try {
+    digest = await executeFinalize({ pending, executor, onStep })
+  } catch (e) {
+    throw new DeployIncompleteError(pending, e)
+  }
+  // Executed: a confirmation failure from here on must not invite a retry.
+  return confirmFinalize({ pending, executor, onStep }, digest)
 }
 
 export { toSuiTxResult, type CoreExecutionResult, type SuiTxResult } from './results.js'
