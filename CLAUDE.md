@@ -33,8 +33,13 @@ deployer) keep only their UI, wallet wiring and form messages.
 
 ## Testing
 
-`npm test` (vitest, 74 tests): rules, type matching (look-alike packages, nested generics, long-form
+`npm test` (vitest, 76 tests): rules, type matching (look-alike packages, nested generics, long-form
 addresses), builders (exact PTB commands), result parsing, deploy flow with a mock executor, wasm
 initialisation, patching, Walrus-URL icons, package generation, paged token listing.
+`tests/abi-table.test.ts` fails if an exported builder is missing from the ABI table
+(`tests/abi-table.ts`). `npm run test:integration` reads the public testnet and mainnet full nodes:
+every framework call the builders make must exist with the same visibility, type-parameter and
+parameter counts (trailing `TxContext` excluded), and the chain ids written into Published.toml
+must match each network.
 `npm run e2e:localnet` deploys a real coin on a local network and checks the balance, the listing and
 the generated package.

@@ -80,6 +80,7 @@ built the module.
 
 ```bash
 npm test               # unit tests
+npm run test:integration  # ABI drift + chain ids against public testnet and mainnet
 npm run e2e:localnet   # real deploy on `sui start --with-faucet --force-regenesis`
 npm run check:template # artefact matches the pinned template
 ```

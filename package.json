@@ -48,6 +48,7 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "GRPC_TESTNET=1 vitest run --config vitest.integration.config.ts",
     "e2e:localnet": "node --import ./scripts/ts-resolve.mjs scripts/e2e-localnet.mjs",
     "lint:js": "eslint .",
     "lint": "npm run lint:js"
