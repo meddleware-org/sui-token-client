@@ -61,6 +61,18 @@ const publishArgs = (over: Partial<Parameters<typeof buildPublishTransaction>[0]
   ...over,
 })
 
+describe('fee recipient', () => {
+  it('refuses a zero, truncated or malformed fee recipient when a fee is charged', () => {
+    for (const bad of ['0x' + '0'.repeat(64), '0x12ab', 'nope', '']) {
+      expect(() => buildPublishTransaction(publishArgs({ feeRecipient: bad })), bad).toThrow(/fee recipient/)
+    }
+  })
+
+  it('does not look at the recipient when no fee is charged', () => {
+    expect(() => buildPublishTransaction(publishArgs({ feeMist: 0n, feeRecipient: '' }))).not.toThrow()
+  })
+})
+
 // ─── buildPublishTransaction ──────────────────────────────────────────────────
 
 describe('buildPublishTransaction', () => {

@@ -1,8 +1,8 @@
 name: Publish (npm)
 
 # Publishes the package to npmjs on a v* tag. Publication is gated on a
-# self-contained `verify` job (type-check + test + build) that re-runs the
-# checks against the exact tagged commit, so a broken tag never ships.
+# `verify` job that runs the same workflow as CI (audit, template artefact, type-check, lint, tests,
+# declarations) on the exact tagged commit, so a broken tag never ships.
 # Authentication uses npm OIDC trusted publishing — no long-lived NPM_TOKEN.
 
 on:
@@ -15,25 +15,8 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (type-check + test)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
-      - name: Install dependencies
-        run: npm ci
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
-      - name: Template artefact matches @meddleware/sui-token-template
-        run: npm run check:template
-      - name: Type-check
-        run: npm run type-check --if-present
-      - name: Unit tests
-        run: npm run test --if-present
-      - name: Build
-        run: npm run build --if-present
+    name: Verify (CI checks)
+    uses: ./.github/workflows/node-ci.yml
 
   publish-npm:
     name: npmjs (@meddleware/sui-token-client)
@@ -54,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        run: npm run build --if-present
+        run: npm run build
       - name: Tag matches the package version
         env:
           TAG: ${{ github.ref_name }}

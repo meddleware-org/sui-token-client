@@ -48,7 +48,8 @@ const result = await deployToken({
 ```
 
 Two transactions are signed: the publish (with the fee and the package policy) and the finalize
-(currency registration, initial mint, supply and metadata policies, caps to the recipient).
+(currency registration, initial mint, supply and metadata policies, caps to the recipient). The
+`UpgradeCap` of an upgradeable package goes to the recipient too (the publish transaction transfers it).
 
 
 If the coin is published but the second signature (finalize) is refused or fails, `deployToken`
@@ -93,7 +94,11 @@ import { listMyTokens } from '@meddleware/sui-token-client'
 const tokens = await listMyTokens(client, owner) // every page; throws past maxPages
 ```
 
-A coin is listed for each owned `0x2::coin::TreasuryCap<T>` (exact type match).
+A coin is listed for each owned `0x2::coin::TreasuryCap<T>` (exact type match), so the list means
+"coins you can mint". It omits a fixed-supply coin (its `TreasuryCap` is frozen, so nobody owns it), and a
+coin whose caps went to a recipient is listed under the recipient, not the deployer. Anyone can also send a
+`TreasuryCap` to an address (it has `store`); that is real control, so it lists, but it is not "deployed by
+me". The result of `deployToken` is the authoritative record of what a session deployed.
 
 ## The template artefact
 

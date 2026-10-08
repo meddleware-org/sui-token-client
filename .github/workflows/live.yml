@@ -1,0 +1,26 @@
+name: Live checks
+
+# Read-only checks against public testnet (no secrets): the ABI of the framework calls the transactions use
+# and the chain identifier handling. Weekly, because a framework change shows up here before it breaks a
+# user. The localnet end-to-end (`npm run e2e:localnet`, needs `sui start`) is run by hand before a release.
+
+on:
+  schedule:
+    - cron: '27 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    name: Testnet read-only suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - run: npm ci
+      - name: Live read-only suite
+        run: npm run test:integration

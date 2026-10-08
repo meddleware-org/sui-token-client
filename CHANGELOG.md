@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7] - 2026-10-08
+
+### Fixed
+
+- `licenseName` and `licenseText` are validated (bounded; the name also against the safe-text rule, the text
+  against NUL bytes) before they reach the generated README and LICENSE.
+- `buildPublishTransaction` refuses a fee recipient that is not a full, non-zero address when a fee is charged.
+- `e2e-localnet.mjs` refuses to run against a public network (chain-identifier check) unless
+  `E2E_ALLOW_PUBLIC=1`.
+
+### Changed
+
+- CI builds the declarations and checks the tarball, runs lint without `--if-present`, and the tag workflow
+  runs the same workflow as CI. A weekly workflow runs the read-only testnet suite.
+- Documentation: the UpgradeCap goes to the recipient; `listMyTokens` means "coins you can mint"; what the
+  fixed-supply and frozen-metadata policies do and do not record in the coin registry; the finalize-retry rule.
+
 ## [0.0.6] - 2026-10-08
 
 ### Changed (breaking, pre-v0.2)

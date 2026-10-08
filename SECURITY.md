@@ -24,12 +24,26 @@ A report showing any of these violated is in scope and treated as high severity.
 
 1. **No unvalidated value reaches Move.** Every config passes `assertTokenConfig` before patching,
    publishing or generating source; a value that could break a Move `b"..."` literal or the generated
-   shell script is refused.
+   shell script is refused. This covers Move source and bytecode, and the generated docs (licence name and
+   text are bounded and checked too); the patcher re-decodes its output and refuses placeholder-valued
+   inputs that would write into the wrong slot.
 2. **The shipped module is the template's.** The artefact is generated from the pinned template
    package and checked against its recorded hashes; CI fails on drift.
 3. **Exact type matching.** Package ids, coin types and caps are read only from objects whose
    normalised types match exactly, and the coin must belong to the package just published.
 4. **No silent truncation.** Token listing returns every page or throws.
+
+### What the policies mean (and do not)
+
+- **Fixed supply** freezes the `TreasuryCap` (nobody can mint again). It does **not** mark the shared
+  `Currency<T>` supply as fixed in the coin registry, so registry-reading tools cannot show it; likewise a
+  frozen `MetadataCap` leaves the registry's cap state at `Claimed`. Recording these needs a template change
+  (tracked with the next `sui-token-template` release) or an optional third transaction.
+- **Upgrade authority** of an upgradeable package goes to the recipient (the sender when none is set); an
+  `immutable` package burns it.
+- **Retrying a finalize** that may already have run can mint the initial supply twice unless the result
+  of the first attempt is checked: `finalizeToken({ client })` checks the chain first and refuses to retry
+  without a client.
 5. **No keys or secrets.** Signing is delegated to the caller's executor; nothing is logged.
 
 

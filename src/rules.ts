@@ -16,6 +16,9 @@ export const TOKEN_LIMITS = Object.freeze({
   iconUrl: 512,
   packageDescription: 256,
   projectName: 64,
+  licenseName: 64,
+  /** The full licence text written to LICENSE (the longest common licences are well under this). */
+  licenseText: 100_000,
   decimals: Object.freeze({ min: 0, max: 18 }),
 })
 
@@ -155,4 +158,21 @@ export function assertTokenConfig(config: TokenConfig): void {
     throw new Error('Invalid recipient: expected 0x followed by 64 hex digits.')
   }
   if (!LICENSE_ID.test(config.license)) throw new Error('Invalid license identifier.')
+  if (config.licenseName !== undefined) {
+    if (config.licenseName.length > TOKEN_LIMITS.licenseName) {
+      throw new Error(`Invalid license name: ${TOKEN_LIMITS.licenseName} characters maximum.`)
+    }
+    if (!SAFE_TEXT.test(config.licenseName)) throw new Error('Invalid license name: contains quotes, backslashes or control characters.')
+  }
+}
+
+/**
+ * Assert a licence text is fit to write to the generated `LICENSE` file: bounded, and free of NUL bytes.
+ * (Newlines and the quotes a real licence contains are fine — it is a plain text file, not source.)
+ *
+ * @throws {Error} if the text is too long or contains a NUL.
+ */
+export function assertLicenseText(text: string): void {
+  if (text.length > TOKEN_LIMITS.licenseText) throw new Error(`Invalid license text: ${TOKEN_LIMITS.licenseText} characters maximum.`)
+  if (text.includes('\u0000')) throw new Error('Invalid license text: contains a NUL byte.')
 }

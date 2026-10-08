@@ -22,6 +22,14 @@ const fail = (msg) => {
   process.exit(1)
 }
 
+// OPS guard: this run publishes a test coin and expects a faucet. Refuse a public network unless asked.
+const { chainIdentifier } = await client.core.getChainIdentifier()
+const PUBLIC = { '4c78adac': 'testnet', '35834a8a': 'mainnet' }
+const short = Buffer.from(Buffer.from((await import('@mysten/sui/utils')).fromBase58(chainIdentifier))).subarray(0, 4).toString('hex')
+if (PUBLIC[short] && process.env.E2E_ALLOW_PUBLIC !== '1') {
+  fail(`${RPC_URL} serves ${PUBLIC[short]} (${short}); this script is for a local network. Set E2E_ALLOW_PUBLIC=1 to override.`)
+}
+
 await requestSuiFromFaucetV2({ host: FAUCET_URL, recipient: sender })
 for (let i = 0; ; i++) {
   const { balance } = await client.getBalance({ owner: sender })

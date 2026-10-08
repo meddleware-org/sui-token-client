@@ -48,6 +48,10 @@ export function buildPublishTransaction(args: BuildPublishArgs): Transaction {
   }
 
   if (args.feeMist > 0n) {
+    // A misconfigured consumer must not burn the fee to 0x0 or a truncated address.
+    if (!/^0x[0-9a-fA-F]{64}$/.test(args.feeRecipient) || /^0x0+$/.test(args.feeRecipient)) {
+      throw new Error('Invalid fee recipient: expected a full, non-zero address (0x followed by 64 hex digits).')
+    }
     const [fee] = tx.splitCoins(tx.gas, [args.feeMist])
     if (!fee) throw new Error('splitCoins returned no coin')
     tx.transferObjects([fee], args.feeRecipient)

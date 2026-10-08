@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  assertLicenseText,
   assertTokenConfig,
   deriveStructName,
   hasAllowedIconScheme,
@@ -156,3 +157,19 @@ describe('validateModuleName / validatePackageName', () => {
     expect(validatePackageName('coin')).toBeNull()
   })
 })
+
+describe('licence fields', () => {
+  it('bounds and checks licenseName', () => {
+    expect(() => assertTokenConfig({ ...good, licenseName: 'MIT License' })).not.toThrow()
+    expect(() => assertTokenConfig({ ...good, licenseName: 'x'.repeat(TOKEN_LIMITS.licenseName + 1) })).toThrow(/license name/)
+    expect(() => assertTokenConfig({ ...good, licenseName: 'a"b' })).toThrow(/license name/)
+    expect(() => assertTokenConfig({ ...good, licenseName: 'a\nb' })).toThrow(/license name/)
+  })
+
+  it('accepts a real multi-line licence text and refuses an oversized or NUL-containing one', () => {
+    expect(() => assertLicenseText('Permission is hereby granted, "free of charge"\nto any person…')).not.toThrow()
+    expect(() => assertLicenseText('x'.repeat(TOKEN_LIMITS.licenseText + 1))).toThrow(/maximum/)
+    expect(() => assertLicenseText('ok\u0000bad')).toThrow(/NUL/)
+  })
+})
+

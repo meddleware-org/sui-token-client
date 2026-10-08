@@ -6,7 +6,7 @@
 // CLI, so it is written whenever a testnet or mainnet PublishResult is supplied.
 
 import { strToU8, zipSync } from 'fflate'
-import { assertTokenConfig } from './rules.js'
+import { assertLicenseText, assertTokenConfig } from './rules.js'
 import { TEMPLATE_BUILD_INFO } from './template/artifact.js'
 import { TEMPLATE_FILES } from './template/files.js'
 import type { PublishResult, TokenConfig, TokenNetwork } from './types.js'
@@ -259,6 +259,7 @@ export interface GeneratePackageOptions {
 export function buildPackageFiles(opts: GeneratePackageOptions): Record<string, string> {
   const { config, licenseText } = opts
   assertTokenConfig(config)
+  if (licenseText) assertLicenseText(licenseText)
   const out: Record<string, string> = {
     'Move.toml': renderMoveToml(config),
     [`sources/${config.moduleName}.move`]: renderSource(config),
