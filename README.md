@@ -61,7 +61,8 @@ import { DeployIncompleteError, finalizeToken } from '@meddleware/sui-token-clie
 try {
   await deployToken({ /* … */ })
 } catch (e) {
-  if (e instanceof DeployIncompleteError) await finalizeToken({ pending: e.pending, executor })
+  // Pass a client so a retry after an executor error that may have landed checks the supply first.
+  if (e instanceof DeployIncompleteError) await finalizeToken({ pending: e.pending, executor, client })
   else throw e
 }
 ```

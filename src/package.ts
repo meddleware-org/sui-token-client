@@ -21,6 +21,16 @@ function replaceAll(input: string, needle: string, value: string): string {
   return input.replace(new RegExp(esc(needle), 'g'), () => value)
 }
 
+/**
+ * Replace every key of `map` in one left-to-right pass. Sequential replacement would re-scan text a
+ * user value already contributed, so a value containing another key (say a description containing
+ * `XMODULENAMEX`) would be rewritten too and the outputs would disagree with the bytecode.
+ */
+function replaceMany(input: string, map: Record<string, string>): string {
+  const keys = Object.keys(map).sort((a, b) => b.length - a.length)
+  return input.replace(new RegExp(keys.map(esc).join('|'), 'g'), (m) => map[m] as string)
+}
+
 /** Apply the shared X…X documentation placeholders. */
 function applyDocPlaceholders(input: string, cfg: TokenConfig): string {
   const map: Record<string, string> = {
@@ -34,9 +44,7 @@ function applyDocPlaceholders(input: string, cfg: TokenConfig): string {
     XPROJECTNAMEX: cfg.projectName,
     XPACKAGEDESCRIPTIONX: cfg.packageDescription,
   }
-  let out = input
-  for (const [k, v] of Object.entries(map)) out = replaceAll(out, k, v)
-  return out
+  return replaceMany(input, map)
 }
 
 // Chain ids of the public networks (hex short form). Localnet has none worth recording.
@@ -74,21 +82,18 @@ function renderSource(cfg: TokenConfig): string {
   }
   out = lines.join('\n')
 
-  out = replaceAll(
-    out,
-    'module sui_token_template::sui_token_template;',
-    `module ${cfg.packageName}::${cfg.moduleName};`,
-  )
-  out = replaceAll(out, 'SUI_TOKEN_TEMPLATE', cfg.structName)
-  out = replaceAll(out, 'XPACKAGEDESCRIPTIONX', cfg.packageDescription)
-  out = replaceAll(out, 'XMODULENAMEX', cfg.moduleName)
-
-  out = replaceAll(out, 'const DECIMALS: u8 = 9;', `const DECIMALS: u8 = ${cfg.decimals};`)
-  out = replaceAll(out, 'b"TEMPLATE_SYMBOL"', `b"${cfg.symbol}"`)
-  out = replaceAll(out, 'b"TEMPLATE_NAME"', `b"${cfg.name}"`)
-  out = replaceAll(out, 'b"TEMPLATE_DESCRIPTION"', `b"${cfg.description}"`)
-  out = replaceAll(out, 'b"TEMPLATE_ICON_URL"', `b"${cfg.iconUrl}"`)
-  return out
+  // One pass: user values are never re-scanned for template keys.
+  return replaceMany(out, {
+    'module sui_token_template::sui_token_template;': `module ${cfg.packageName}::${cfg.moduleName};`,
+    SUI_TOKEN_TEMPLATE: cfg.structName,
+    XPACKAGEDESCRIPTIONX: cfg.packageDescription,
+    XMODULENAMEX: cfg.moduleName,
+    'const DECIMALS: u8 = 9;': `const DECIMALS: u8 = ${cfg.decimals};`,
+    'b"TEMPLATE_SYMBOL"': `b"${cfg.symbol}"`,
+    'b"TEMPLATE_NAME"': `b"${cfg.name}"`,
+    'b"TEMPLATE_DESCRIPTION"': `b"${cfg.description}"`,
+    'b"TEMPLATE_ICON_URL"': `b"${cfg.iconUrl}"`,
+  })
 }
 
 function renderPublishScript(cfg: TokenConfig): string {
@@ -101,9 +106,38 @@ function renderPublishScript(cfg: TokenConfig): string {
 /** The template README's licence line, whatever licence the template itself ships with. */
 const TEMPLATE_LICENSE_LINE = /^(?:CC0 1\.0 Universal|BSD Zero Clause License).*$/m
 
+/**
+ * How the chosen supply and metadata policies are enforced, and what the coin registry does and does
+ * not show. A fixed supply and frozen metadata are enforced by FREEZING the caps, not by recording
+ * the policy in the registry's `Currency`, so registry-based wallets and explorers cannot show them.
+ */
+function policyNote(cfg: TokenConfig): string {
+  const lines = ['## Supply and metadata policies', '']
+  lines.push(
+    cfg.supplyPolicy === 'fixed'
+      ? '- **Fixed supply**: the TreasuryCap was frozen after the initial mint, so no further coins can ever be minted. The coin registry still reports the supply as unknown, so wallets and explorers that read the registry cannot show this; verify it by checking that the TreasuryCap object is frozen (immutable).'
+      : '- **Mintable supply**: the TreasuryCap is held by the recipient, who can mint more at any time.',
+  )
+  lines.push(
+    cfg.metadataPolicy === 'frozen'
+      ? '- **Frozen metadata**: the MetadataCap was frozen, so the name, symbol, description and icon can never change. The registry still shows the metadata capability as claimed; verify it by checking that the MetadataCap object is frozen (immutable).'
+      : '- **Updatable metadata**: the MetadataCap is held by the recipient, who can edit the metadata.',
+  )
+  lines.push(
+    cfg.packagePolicy === 'immutable'
+      ? '- **Immutable package**: the UpgradeCap was burned at publish; the code can never change.'
+      : '- **Upgradeable package**: the UpgradeCap was sent to the recipient, who alone can upgrade the package.',
+  )
+  return `\n${lines.join('\n')}\n`
+}
+
 function renderReadme(cfg: TokenConfig): string {
   const out = applyDocPlaceholders(TEMPLATE_FILES['README.md'], cfg)
   const licenseName = cfg.licenseName || spdxId(cfg.license)
+  return `${renderReadmeLicense(out, cfg, licenseName).trimEnd()}\n${policyNote(cfg)}`
+}
+
+function renderReadmeLicense(out: string, cfg: TokenConfig, licenseName: string): string {
   return out.replace(
     TEMPLATE_LICENSE_LINE,
     isProprietary(cfg.license)

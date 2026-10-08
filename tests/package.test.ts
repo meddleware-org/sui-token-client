@@ -35,6 +35,29 @@ const REQUIRED = [
   'AGENTS.md',
 ]
 
+describe('rendered source and docs are one-pass (F1)', () => {
+  it('a value containing another template key is not rewritten', () => {
+    const cfg = { ...baseConfig, packageDescription: 'About XMODULENAMEX and SUI_TOKEN_TEMPLATE', description: 'see XSYMBOLX' }
+    const f = buildPackageFiles({ config: cfg })
+    const src = f['sources/mytoken.move'] as string
+    expect(src).toContain('About XMODULENAMEX and SUI_TOKEN_TEMPLATE')
+    expect(src).toContain('b"see XSYMBOLX"')
+    expect(src).toContain('b"MTK"')
+    expect(src).toContain('b"My Token"')
+    expect(src).not.toContain('TEMPLATE_')
+  })
+
+  it('documents how the supply and metadata policies are enforced and what the registry shows', () => {
+    const fixed = buildPackageFiles({ config: { ...baseConfig, supplyPolicy: 'fixed', metadataPolicy: 'frozen' } })['README.md'] as string
+    expect(fixed).toContain('## Supply and metadata policies')
+    expect(fixed).toMatch(/Fixed supply.*frozen.*registry still reports the supply as unknown/s)
+    expect(fixed).toMatch(/Frozen metadata/)
+    const open = buildPackageFiles({ config: { ...baseConfig, packagePolicy: 'upgradeable' } })['README.md'] as string
+    expect(open).toMatch(/Mintable supply/)
+    expect(open).toMatch(/UpgradeCap was sent to the recipient/)
+  })
+})
+
 describe('buildPackageFiles', () => {
   it('produces the full mwsui_token-shaped file set (+ LICENSE for a real license)', () => {
     const f = buildPackageFiles({ config: baseConfig, licenseText: 'MIT LICENSE\n...' })

@@ -102,6 +102,12 @@ describe('buildPublishTransaction', () => {
     // the only transfer is the UpgradeCap -> sender (no fee split here)
     expect(pureAddr(pureBytesOfInput(tx, transfer!.TransferObjects.address))).toBe(sender)
   })
+
+  it('sends the UpgradeCap to the recipient when there is one, so upgrade authority travels with the caps', () => {
+    const tx = buildPublishTransaction(publishArgs({ packagePolicy: 'upgradeable', feeMist: 0n, recipient }))
+    const [transfer] = byKind(tx, 'TransferObjects')
+    expect(pureAddr(pureBytesOfInput(tx, transfer!.TransferObjects.address))).toBe(recipient)
+  })
 })
 
 // ─── buildFinalizeTransaction ─────────────────────────────────────────────────

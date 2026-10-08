@@ -5,7 +5,7 @@
 // publish executes:
 //
 //   1. buildPublishTransaction — publish the patched module, take the platform fee, and apply the
-//      UpgradeCap policy (make immutable, or keep).
+//      UpgradeCap policy (make immutable, or send it to the recipient).
 //   2. buildFinalizeTransaction — register the currency, mint the initial supply, apply the supply
 //      and metadata policies, and move the caps and supply to the recipient.
 
@@ -23,6 +23,11 @@ export interface BuildPublishArgs {
   feeRecipient: string
   gasBudget: bigint
   packagePolicy: TokenConfig['packagePolicy']
+  /**
+   * Receives the UpgradeCap of an `upgradeable` package (default: the sender). The recipient is who
+   * the coin's caps go to, so upgrade authority travels with them rather than staying with the deployer.
+   */
+  recipient?: string
 }
 
 /** Publish PTB: publish → (make_immutable | transfer the UpgradeCap) + the fee split from gas. */
@@ -39,7 +44,7 @@ export function buildPublishTransaction(args: BuildPublishArgs): Transaction {
   if (args.packagePolicy === 'immutable') {
     tx.moveCall({ target: `${SUI_FRAMEWORK}::package::make_immutable`, arguments: [upgradeCap] })
   } else {
-    tx.transferObjects([upgradeCap], args.sender)
+    tx.transferObjects([upgradeCap], args.recipient || args.sender)
   }
 
   if (args.feeMist > 0n) {

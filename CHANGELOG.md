@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2026-10-08
+
+### Changed (breaking, pre-v0.2)
+
+- **Placeholder-valued inputs can no longer land in the wrong slot.** The patcher resolves every
+  constant from the pristine pool before writing any, refuses a symbol/name/description/icon that is a
+  template placeholder, and decodes the patched module to confirm each constant, identifier and the
+  decimals before returning it. The downloadable source and README are rendered in one pass, so a value
+  containing another template key (say `XMODULENAMEX`) is no longer rewritten and the outputs agree
+  with the bytecode.
+- **The UpgradeCap of an `upgradeable` package goes to the recipient** (default the sender), so
+  upgrade authority travels with the caps. `BuildPublishArgs` gains `recipient`.
+- **`finalizeToken` can no longer mint the initial supply twice.** Pass `client`: it reads the
+  TreasuryCap's supply and skips the retry if the mint already ran. A retry in the one unsafe shape (no
+  Currency reference, mintable, recipient = sender) refuses to run without a client.
+- The generated README states how the supply and metadata policies are enforced (frozen caps, not
+  registry state), what the registry therefore does not show, and who holds the UpgradeCap.
+
 ## [0.0.5] - 2026-10-02
 
 ### Changed

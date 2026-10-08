@@ -1,6 +1,6 @@
 {
   "name": "@meddleware/sui-token-client",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "homepage": "https://dev.meddleware.co.uk/sui/",
   "type": "module",
   "description": "Sui token client for @meddleware/sui-token-template: Move rules, bytecode patching, publish/finalize PTBs, result parsing, owned-token listing and package generation.",

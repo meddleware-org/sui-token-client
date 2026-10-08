@@ -114,17 +114,46 @@ export async function patchTemplateModule(params: PatchParams): Promise<Uint8Arr
   if (!u8) throw new Error(`template U8 constant ${TEMPLATE_DEFAULTS.decimals} not found (artefact drift?)`)
   u8.data = [params.decimals]
 
-  for (const key of ['symbol', 'name', 'description', 'iconUrl'] as const) {
+  // Resolve every target slot from the PRISTINE pool before writing any of them. Looking each field
+  // up in turn, after earlier fields were overwritten, lets a value equal to a later template default
+  // (say a symbol of "TEMPLATE_NAME") capture the wrong slot.
+  const keys = ['symbol', 'name', 'description', 'iconUrl'] as const
+  const defaults = new Set<string>(keys.map((k) => TEMPLATE_DEFAULTS[k]))
+  const slots = keys.map((key) => {
     const next = params[key]
     if (!SAFE_TEXT.test(next)) throw new Error(`${key} contains quotes, backslashes or control characters`)
     if (next.length > TEXT_LIMITS[key]) throw new Error(`${key} exceeds ${TEXT_LIMITS[key]} characters`)
+    // A value that is a template placeholder is never what the user meant, and would make the
+    // published constants ambiguous with the template's own.
+    if (defaults.has(next) || next.startsWith('TEMPLATE_')) {
+      throw new Error(`${key} must not be a template placeholder ("${next}")`)
+    }
     const current = vecU8(TEMPLATE_DEFAULTS[key])
     const entry = json.constant_pool.find((c) => c.type_ !== 'U8' && sameBytes(c.data, current))
     if (!entry) throw new Error(`template constant "${TEMPLATE_DEFAULTS[key]}" not found (artefact drift?)`)
-    entry.data = vecU8(next)
+    return { key, entry, next }
+  })
+  if (new Set(slots.map((s) => s.entry)).size !== slots.length) {
+    throw new Error('template constants are not distinct (artefact drift?)')
   }
+  for (const { entry, next } of slots) entry.data = vecU8(next)
 
-  return new Uint8Array(serialize(json as unknown as Parameters<typeof serialize>[0]))
+  const out = new Uint8Array(serialize(json as unknown as Parameters<typeof serialize>[0]))
+
+  // Post-condition: decode what will be published and confirm every constant and identifier is what
+  // the caller asked for, so a patcher bug can never reach the chain (the values are permanent).
+  const check = deserialize(out) as unknown as DecodedModule
+  const ids = new Set(check.identifiers)
+  if (!ids.has(params.moduleName) || !ids.has(params.structName)) throw new Error('patched module lacks the requested identifiers')
+  for (const { key, next } of slots) {
+    const want = vecU8(next)
+    if (!check.constant_pool.some((c) => c.type_ !== 'U8' && sameBytes(c.data, want))) {
+      throw new Error(`patched module does not carry the requested ${key}`)
+    }
+  }
+  const dec = check.constant_pool.filter((c) => c.type_ === 'U8' && sameBytes(c.data, [params.decimals]))
+  if (dec.length === 0) throw new Error('patched module does not carry the requested decimals')
+  return out
 }
 
 /** Assert `config` meets every token rule, then patch the module for it. */

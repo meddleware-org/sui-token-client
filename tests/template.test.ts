@@ -92,6 +92,38 @@ describe('patchTemplateModule', () => {
 
 // Temporary test to check Walrus blob URL patching
 
+describe('patchTemplateModule placeholder-valued inputs (F1)', () => {
+  const base = { moduleName: 'mycoin', structName: 'MYCOIN', symbol: 'MYC', name: 'My Coin', description: 'desc', iconUrl: 'https://example.com/i.png', decimals: 6 }
+
+  it('refuses a value that is a template placeholder instead of writing it into the wrong slot', async () => {
+    await (init as unknown as () => Promise<unknown>)()
+    for (const over of [
+      { symbol: TEMPLATE_DEFAULTS.name },
+      { name: TEMPLATE_DEFAULTS.description },
+      { description: TEMPLATE_DEFAULTS.iconUrl },
+      { iconUrl: TEMPLATE_DEFAULTS.symbol },
+      { name: 'TEMPLATE_ANYTHING' },
+    ]) {
+      await expect(patchTemplateModule({ ...base, ...over })).rejects.toThrow(/template placeholder/)
+    }
+  })
+
+  it('resolves all slots from the pristine pool: distinct values land in their own constants', async () => {
+    await (init as unknown as () => Promise<unknown>)()
+    const bytes = await patchTemplateModule({ ...base, symbol: 'AAA', name: 'BBB', description: 'CCC', iconUrl: 'https://d.example/' })
+    const back = deserialize(bytes) as unknown as Decoded
+    const order = back.constant_pool.filter((c) => c.type_ !== 'U8').map((c) => asStr(c.data))
+    expect(order.indexOf('AAA')).toBeLessThan(order.indexOf('BBB'))
+    expect(order.indexOf('BBB')).toBeLessThan(order.indexOf('CCC'))
+    expect(order.indexOf('CCC')).toBeLessThan(order.indexOf('https://d.example/'))
+  })
+
+  it('accepts identical symbol and name, and empty description and icon', async () => {
+    await (init as unknown as () => Promise<unknown>)()
+    await expect(patchTemplateModule({ ...base, symbol: 'SAME', name: 'SAME', description: '', iconUrl: '' })).resolves.toBeInstanceOf(Uint8Array)
+  })
+})
+
 describe('patchTemplateModule identifier guard', () => {
   it('refuses a module name that duplicates an identifier the template uses', async () => {
     await (init as unknown as () => Promise<unknown>)()

@@ -98,18 +98,60 @@ export class DeployUnconfirmedError extends PublishedError {
   }
 }
 
+/** The one read {@link finalizeToken} makes to learn whether an earlier attempt already ran. */
+export interface FinalizeCheckClient {
+  core: {
+    getObject(options: { objectId: string; include?: { json?: boolean } }): Promise<{ object: { json?: unknown } }>
+  }
+}
+
+/** True if the TreasuryCap's total supply already covers the initial mint: an earlier finalize ran. */
+async function alreadyMinted(client: FinalizeCheckClient, pending: PendingFinalize): Promise<boolean> {
+  const { config, result } = pending
+  if (config.initialSupply <= 0n || !result.treasuryCapId) return false
+  const { object } = await client.core.getObject({ objectId: result.treasuryCapId, include: { json: true } })
+  const supply = (object.json as { total_supply?: { value?: unknown } } | null | undefined)?.total_supply?.value
+  const total = typeof supply === 'string' && /^\d{1,20}$/.test(supply) ? BigInt(supply) : null
+  return total !== null && total >= config.initialSupply * 10n ** BigInt(config.decimals)
+}
+
 /**
  * Run (or retry) the finalize step of a published token: register the currency, mint the initial
  * supply, apply the supply and metadata policies and route the caps. Resolves once confirmed.
  *
- * @throws {Error} if the finalize transaction fails or returns no success status (retryable).
+ * A retry can follow an attempt that executed on-chain but whose executor then threw. Whether blindly
+ * repeating it is safe depends on the config (a stale `currencyRef` aborts it atomically; a frozen or
+ * moved TreasuryCap blocks the mint), except when `currencyRef` is absent, the supply is mintable and
+ * the recipient is the sender: then the retry is valid and would mint the initial supply AGAIN. Pass
+ * `client` to check the TreasuryCap's supply first (the retry is skipped if the mint already ran);
+ * that case refuses to run without one.
+ *
+ * @throws {Error} if the finalize transaction fails or returns no success status (retryable), or the
+ *   retry cannot be made safe without a `client`.
  * @throws {DeployUnconfirmedError} if it executed but could not be confirmed (do not retry).
  */
 export async function finalizeToken(args: {
   pending: PendingFinalize
   executor: Executor
   onStep?: (step: DeployStep) => void
+  client?: FinalizeCheckClient
 }): Promise<PublishResult> {
+  const { pending, client } = args
+  const unsafeToRepeat =
+    pending.config.initialSupply > 0n &&
+    pending.config.supplyPolicy !== 'fixed' &&
+    !pending.currencyRef &&
+    (pending.config.recipient || pending.sender).toLowerCase() === pending.sender.toLowerCase()
+  if (client) {
+    if (await alreadyMinted(client, pending)) {
+      args.onStep?.('done')
+      return pending.result
+    }
+  } else if (unsafeToRepeat) {
+    throw new Error(
+      'finalizeToken: a retry could mint the initial supply twice (no Currency reference, mintable, recipient is the sender). Pass a client so the supply can be checked first.',
+    )
+  }
   const digest = await executeFinalize(args)
   return confirmFinalize(args, digest)
 }
@@ -184,6 +226,7 @@ export async function deployToken(args: DeployArgs): Promise<PublishResult> {
       feeRecipient: args.feeTreasury,
       gasBudget: args.gasBudget,
       packagePolicy: config.packagePolicy,
+      recipient: config.recipient || args.sender,
     }),
   )
   assertSuccess(pub, 'Publish')

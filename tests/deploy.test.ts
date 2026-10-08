@@ -186,6 +186,34 @@ describe('deployToken — interrupted between publish and finalize', () => {
     expect(steps).toEqual(['finalizing', 'confirming-finalize', 'done'])
   })
 
+  it('finalizeToken refuses a retry that could mint twice unless the supply can be checked, and skips it once the mint ran', async () => {
+    const first = mockExecutor({
+      signAndExecute: vi.fn<SignAndExecute>().mockResolvedValueOnce(okPublish).mockRejectedValueOnce(new Error('network error after submit')),
+    })
+    const err = (await deployToken({
+      config: baseConfig({ initialSupply: 1000n }), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
+      gasBudget: 1n, executor: first,
+    }).catch((e: unknown) => e)) as DeployIncompleteError
+    // The unsafe shape: no Currency reference, mintable, recipient is the sender.
+    const pending = {
+      ...err.pending,
+      result: { ...err.pending.result, treasuryCapId: '0x' + 'a'.repeat(64), metadataCapId: '0x' + 'b'.repeat(64) },
+      currencyRef: undefined,
+    }
+    const retry = mockExecutor()
+    await expect(finalizeToken({ pending, executor: retry })).rejects.toThrow(/mint the initial supply twice/)
+    expect(retry.signAndExecute).not.toHaveBeenCalled()
+
+    const supply = (value: string) => ({ core: { getObject: vi.fn(async () => ({ object: { json: { total_supply: { value } } } })) } })
+    // The first attempt did land: the cap already holds the initial supply, so nothing is submitted.
+    const done = await finalizeToken({ pending, executor: retry, client: supply('1000000000000') })
+    expect(done.coinType).toBe(COIN)
+    expect(retry.signAndExecute).not.toHaveBeenCalled()
+    // It did not land: the retry runs.
+    await finalizeToken({ pending, executor: retry, client: supply('0') })
+    expect(retry.signAndExecute).toHaveBeenCalledTimes(1)
+  })
+
   it('does not invite a retry when the finalize executed but its confirmation failed', async () => {
     const exec = mockExecutor({
       waitForTransaction: vi
