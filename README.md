@@ -100,11 +100,15 @@ import { listMyTokens } from '@meddleware/sui-token-client'
 const tokens = await listMyTokens(client, owner) // every page; throws past maxPages
 ```
 
-A coin is listed for each owned `0x2::coin::TreasuryCap<T>` (exact type match), so the list means
-"coins you can mint". It omits a fixed-supply coin (it has no `TreasuryCap`: the registry holds the supply), and a
-coin whose caps went to a recipient is listed under the recipient, not the deployer. Anyone can also send a
-`TreasuryCap` to an address (it has `store`); that is real control, so it lists, but it is not "deployed by
-me". The result of `deployToken` is the authoritative record of what a session deployed.
+A coin is listed when the wallet owns its `0x2::coin::TreasuryCap<T>` (it can mint) or
+`0x2::coin_registry::MetadataCap<T>` (it can edit), both matched by exact type; the entry carries the
+`treasuryCapId` / `metadataCapId` it owns. A fixed supply with frozen metadata has neither (the registry holds
+the supply and the cap was deleted), so a second rule lists it: the wallet holds a balance of the coin **and**
+sent the transaction that published its package (one `getObject` and one `getTransaction` per held package;
+SUI and system packages are skipped; a failed read throws rather than dropping a coin). A coin whose caps
+went to a recipient is listed under the recipient; a coin the wallet merely received is not listed. Anyone can
+send a `TreasuryCap` to an address (it has `store`); that is real control, so it lists, but it is not "deployed
+by me". The result of `deployToken` is the authoritative record of what a session deployed.
 
 ## The template artefact
 

@@ -87,7 +87,7 @@ const { balance } = await client.getBalance({ owner: sender, coinType: result.co
 if (BigInt(balance.balance) !== 1_000n * 10n ** 6n) fail(`expected 1000 tokens at 6 decimals, got ${balance.balance}`)
 
 const tokens = await listMyTokens(client, sender)
-if (!tokens.some((t) => t.coinType === result.coinType && t.treasuryCapId === result.treasuryCapId)) {
+if (!tokens.some((t) => t.coinType === result.coinType && t.treasuryCapId === result.treasuryCapId && t.metadataCapId === result.metadataCapId)) {
   fail('listMyTokens does not list the new coin')
 }
 
@@ -128,6 +128,12 @@ if (owned.objects.some((o) => /TreasuryCap|MetadataCap/.test(o.type) && o.type.i
   fail('the sender owns a cap of the fixed, frozen coin')
 }
 console.log(`fixed ${fixed.coinType}: no caps exist; the registry records Fixed supply and Deleted metadata cap`)
+// listMyTokens finds it although it has no capability: the wallet holds it and published its package.
+const listed = await listMyTokens(client, sender)
+const fixedListed = listed.find((t) => t.coinType === fixed.coinType)
+if (!fixedListed) fail('listMyTokens does not list the fixed, frozen coin')
+if (fixedListed.treasuryCapId || fixedListed.metadataCapId) fail('the fixed, frozen coin is listed with a capability')
+if (listed.some((t) => t.coinType.includes('::none::'))) fail('listMyTokens listed an unrelated coin')
 
 // Equal constants: a symbol that equals the name, and an empty description and icon, would leave duplicate
 // entries in the constant pool, which the bytecode verifier rejects at publish. The patcher merges them.

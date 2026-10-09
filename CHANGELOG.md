@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.10] - 2026-10-09
+
+### Changed
+
+- **Breaking (pre-v0.2):** `listMyTokens` also lists coins with no capability: a fixed supply with frozen metadata is found because the wallet holds it and published its package. `DeployedToken.treasuryCapId` is optional and `metadataCapId` added; the listing reads `MetadataCap`s, balances and the publishing transaction of each held package (new `maxHeldCoinTypes`, `OwnedObjectsClient` needs `listBalances`, `getObject`, `getTransaction`)
+
 ## [0.0.9] - 2026-10-09
 
 ### Changed

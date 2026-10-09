@@ -41,7 +41,10 @@ deployer) keep only their UI, wallet wiring and form messages.
   `PublishedError`: `DeployIncompleteError` (finish with `finalizeToken(pending)`),
   `DeployUnconfirmedError` (set up, not confirmed — do not retry) or a plain `PublishedError`
   (unreadable effects). Callers must never answer one with a fresh deploy.
-- **No silent truncation.** `listMyTokens` reads every page or throws past `maxPages`.
+- **No silent truncation.** `listMyTokens` reads every page or throws past `maxPages`, and throws when a
+  wallet holds more than `maxHeldCoinTypes` packages' coins to check. It lists a coin for an owned
+  TreasuryCap or MetadataCap, or for a held balance whose package the wallet published (the only way to find a
+  fixed supply with frozen metadata, which has no capability); a failed lookup throws.
 - **No environment reads.** No `import.meta.env`, no logging of transactions; the caller supplies the
   network, fee, treasury, gas budget and executor.
 - **Wasm failures surface.** `initTemplateWasm` initialises once and rethrows a load failure (the next
@@ -50,7 +53,7 @@ deployer) keep only their UI, wallet wiring and form messages.
 
 ## Testing
 
-`npm test` (vitest, 118 tests): rules, type matching (look-alike packages, nested generics, long-form
+`npm test` (vitest, 126 tests): rules, type matching (look-alike packages, nested generics, long-form
 addresses), builders (exact PTB commands), result parsing, deploy flow with a mock executor, wasm
 initialisation, patching, Walrus-URL icons, package generation, paged token listing.
 `tests/abi-table.test.ts` fails if an exported builder is missing from the ABI table

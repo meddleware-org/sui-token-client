@@ -73,19 +73,25 @@ export interface PublishResult {
   feeMist: string
 }
 
-/** One coin a wallet controls (holds the `TreasuryCap<T>` for). */
+/**
+ * One coin a wallet deployed or still controls. A coin is listed when the wallet owns its `TreasuryCap<T>`
+ * or `MetadataCap<T>`, or holds a balance of a coin whose package the wallet published. A fixed supply with
+ * frozen metadata has no capability at all, so the last rule is what lists it.
+ */
 export interface DeployedToken {
   /** Full coin type, e.g. `0x<pkg>::mytoken::MYTOKEN` (normalised). */
   coinType: string
   /** The package the coin type is defined in. */
   packageId: string
-  /** Object id of the owned `TreasuryCap<T>`. */
-  treasuryCapId: string
+  /** Object id of the owned `TreasuryCap<T>` (the wallet can mint). Absent for a fixed supply or after handing the cap on. */
+  treasuryCapId?: string
+  /** Object id of the owned `MetadataCap<T>` (the wallet can edit description and icon). */
+  metadataCapId?: string
   /** The one-time-witness struct name — a compact display label. */
   label: string
 }
 
-/** The owned-object listing a core Sui client exposes (e.g. `SuiGrpcClient`). */
+/** The reads {@link listMyTokens} makes on a core Sui client (e.g. `SuiGrpcClient`). */
 export interface OwnedObjectsClient {
   core: {
     listOwnedObjects(options: {
@@ -94,5 +100,18 @@ export interface OwnedObjectsClient {
       cursor?: string | null
       limit?: number
     }): Promise<{ objects: { objectId: string; type: string }[]; hasNextPage: boolean; cursor: string | null }>
+    listBalances(options: {
+      owner: string
+      cursor?: string | null
+      limit?: number
+    }): Promise<{ balances: { coinType: string }[]; hasNextPage: boolean; cursor: string | null }>
+    /** Reads a package object, whose `previousTransaction` is the transaction that published it. */
+    getObject(options: { objectId: string; include?: { previousTransaction?: boolean } }): Promise<{
+      object: { previousTransaction?: string | null }
+    }>
+    getTransaction(options: { digest: string; include?: { transaction?: boolean } }): Promise<{
+      Transaction?: { transaction?: { sender?: string } | null }
+      FailedTransaction?: { transaction?: { sender?: string } | null }
+    }>
   }
 }
