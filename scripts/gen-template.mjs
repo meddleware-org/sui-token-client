@@ -33,6 +33,10 @@ const DEFAULTS = {
   name: 'TEMPLATE_NAME',
   description: 'TEMPLATE_DESCRIPTION',
   iconUrl: 'TEMPLATE_ICON_URL',
+  // Supply and metadata policy (raw units / booleans). The booleans differ on purpose, like every default.
+  initialSupply: 1000000007,
+  fixedSupply: true,
+  frozenMetadata: false,
 }
 
 const mv = read('bytecode/sui_token_template.mv')
@@ -49,6 +53,9 @@ for (const needle of [
   IDENTIFIERS.struct,
   `const DECIMALS: u8 = ${DEFAULTS.decimals};`,
   ...['symbol', 'name', 'description', 'iconUrl'].map((k) => `b"${DEFAULTS[k]}"`),
+  'const INITIAL_SUPPLY: u64 = 1_000_000_007;',
+  `const FIXED_SUPPLY: bool = ${DEFAULTS.fixedSupply};`,
+  `const FROZEN_METADATA: bool = ${DEFAULTS.frozenMetadata};`,
 ]) {
   if (!source.includes(needle)) fail(`source is missing ${needle}`)
 }
@@ -71,6 +78,15 @@ const pool = decoded.constant_pool
 const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
 if (pool.filter((c) => c.type_ === 'U8' && same(c.data, [DEFAULTS.decimals])).length !== 1) {
   fail(`U8 constant ${DEFAULTS.decimals} is not in the constant pool exactly once`)
+}
+const u64le = (n) => Array.from({ length: 8 }, (_, i) => Number((BigInt(n) >> BigInt(8 * i)) & 0xffn))
+if (pool.filter((c) => c.type_ === 'U64' && same(c.data, u64le(DEFAULTS.initialSupply))).length !== 1) {
+  fail(`U64 constant ${DEFAULTS.initialSupply} is not in the constant pool exactly once`)
+}
+for (const [label, value] of [['FIXED_SUPPLY', DEFAULTS.fixedSupply], ['FROZEN_METADATA', DEFAULTS.frozenMetadata]]) {
+  if (pool.filter((c) => c.type_ === 'Bool' && same(c.data, [value ? 1 : 0])).length !== 1) {
+    fail(`Bool constant ${label} = ${value} is not in the constant pool exactly once`)
+  }
 }
 for (const k of ['symbol', 'name', 'description', 'iconUrl']) {
   const bytes = Array.from(bcs.string().serialize(DEFAULTS[k]).toBytes())
@@ -113,6 +129,9 @@ export const TEMPLATE_DEFAULTS = Object.freeze({
   name: '${DEFAULTS.name}',
   description: '${DEFAULTS.description}',
   iconUrl: '${DEFAULTS.iconUrl}',
+  initialSupply: ${DEFAULTS.initialSupply},
+  fixedSupply: ${DEFAULTS.fixedSupply},
+  frozenMetadata: ${DEFAULTS.frozenMetadata},
 } as const)
 `
 

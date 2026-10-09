@@ -44,12 +44,18 @@ const result = await deployToken({
   },
   onStep: (step) => console.log(step),
 })
-// result: { packageId, coinType, treasuryCapId, metadataCapId, currencyId, upgradeCapId?, digest, … }
+// result: { packageId, coinType, treasuryCapId?, metadataCapId?, initialCoinId?, currencyId, upgradeCapId?, digest, … }
 ```
 
 Two transactions are signed: the publish (with the fee and the package policy) and the finalize
-(currency registration, initial mint, supply and metadata policies, caps to the recipient). The
-`UpgradeCap` of an upgradeable package goes to the recipient too (the publish transaction transfers it).
+(currency registration, and the coin's objects to the recipient). The coin's own `init` applies the
+initial supply and the supply and metadata policies **in the publish transaction**: it mints the supply to
+the publisher; a `fixed` supply is handed to the coin registry (no `TreasuryCap` exists, and the registry
+reports the supply as fixed); `frozen` metadata deletes the `MetadataCap` (the registry reports it as
+deleted). So `treasuryCapId` is absent for a fixed supply, `metadataCapId` for frozen metadata, and
+`initialCoinId` is the minted coin. A fixed supply needs an initial supply above zero (the framework
+refuses to fix an empty one). The `UpgradeCap` of an upgradeable package goes to the recipient too (the
+publish transaction transfers it).
 
 
 If the coin is published but the second signature (finalize) is refused or fails, `deployToken`
@@ -62,8 +68,8 @@ import { DeployIncompleteError, finalizeToken } from '@meddleware/sui-token-clie
 try {
   await deployToken({ /* … */ })
 } catch (e) {
-  // Pass a client so a retry after an executor error that may have landed checks the supply first.
-  if (e instanceof DeployIncompleteError) await finalizeToken({ pending: e.pending, executor, client })
+  // Safe to repeat even if the first attempt landed: it is rejected without effect (nothing is minted here).
+  if (e instanceof DeployIncompleteError) await finalizeToken({ pending: e.pending, executor })
   else throw e
 }
 ```
@@ -95,7 +101,7 @@ const tokens = await listMyTokens(client, owner) // every page; throws past maxP
 ```
 
 A coin is listed for each owned `0x2::coin::TreasuryCap<T>` (exact type match), so the list means
-"coins you can mint". It omits a fixed-supply coin (its `TreasuryCap` is frozen, so nobody owns it), and a
+"coins you can mint". It omits a fixed-supply coin (it has no `TreasuryCap`: the registry holds the supply), and a
 coin whose caps went to a recipient is listed under the recipient, not the deployer. Anyone can also send a
 `TreasuryCap` to an address (it has `store`); that is real control, so it lists, but it is not "deployed by
 me". The result of `deployToken` is the authoritative record of what a session deployed.

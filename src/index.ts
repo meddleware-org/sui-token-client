@@ -44,11 +44,13 @@ export {
 export {
   buildFinalizeTransaction,
   buildPublishTransaction,
+  finalizeHasWork,
   type BuildFinalizeArgs,
   type BuildPublishArgs,
   type CurrencyRef,
 } from './transactions.js'
 export {
+  assertResultMatchesPolicy,
   extractPublishResult,
   toSuiTxResult,
   type CoreExecutionResult,

@@ -56,8 +56,12 @@ export interface PublishResult {
   packageId: string
   /** Full coin type `<packageId>::<module>::<STRUCT>` (normalised). */
   coinType: string
+  /** Absent for a fixed supply: the registry took the cap in `init`. */
   treasuryCapId?: string
+  /** Absent for frozen metadata: `init` deleted the cap. */
   metadataCapId?: string
+  /** The initial supply, one `Coin<T>` owned by the publisher until finalize moves it; absent for a zero supply. */
+  initialCoinId?: string
   currencyId?: string
   /** Version and digest of the pending `Currency<T>` — needed for `finalize_registration`. */
   currencyVersion?: string

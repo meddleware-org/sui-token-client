@@ -5,8 +5,8 @@
 import type { SuiClientTypes } from '@mysten/sui/client'
 import { normalizeSuiAddress } from '@mysten/sui/utils'
 import type { CurrencyRef } from './transactions.js'
-import { frameworkTypeArgument, isFrameworkType, treasuryCapCoinType, typePackage } from './typeNames.js'
-import type { PublishResult, TokenNetwork } from './types.js'
+import { frameworkTypeArgument, isFrameworkType, typePackage } from './typeNames.js'
+import type { PublishResult, TokenConfig, TokenNetwork } from './types.js'
 
 /** One object change, in the shape {@link toSuiTxResult} produces. */
 export interface ObjectChange {
@@ -62,10 +62,14 @@ export interface ParsedPublish {
 }
 
 /**
- * Read the package id, coin type and the created caps out of a publish's object changes.
+ * Read the package id, coin type and the created objects out of a publish's object changes.
  *
- * @throws {Error} unless exactly one package was published and exactly one `TreasuryCap<T>` of a coin
- *   defined in that package was created.
+ * The coin type comes from the pending `Currency<T>` (every coin has exactly one, and it exists whatever
+ * the policies are). The `TreasuryCap` is absent for a fixed supply and the `MetadataCap` for frozen
+ * metadata, because `init` applied those policies in the publish transaction.
+ *
+ * @throws {Error} unless exactly one package was published, exactly one `Currency<T>` of a coin defined
+ *   in that package was created, and no more than one of each of its other objects.
  */
 export function extractPublishResult(
   objectChanges: readonly ObjectChange[],
@@ -78,40 +82,77 @@ export function extractPublishResult(
   const packageId = normalizeSuiAddress(published[0]?.packageId ?? '')
   const created = objectChanges.filter((c) => c.type === 'created' && c.objectId && c.objectType)
 
-  const treasuries = created.filter((c) => {
-    const coin = treasuryCapCoinType(c.objectType)
+  const currencies = created.filter((c) => {
+    const coin = frameworkTypeArgument(c.objectType, 'coin_registry', 'Currency')
     return coin !== null && typePackage(coin) === packageId
   })
-  if (treasuries.length !== 1) {
-    throw new Error(`expected exactly one TreasuryCap for a coin of ${packageId}, found ${treasuries.length}`)
+  if (currencies.length !== 1) {
+    throw new Error(`expected exactly one Currency for a coin of ${packageId}, found ${currencies.length}`)
   }
-  const treasury = treasuries[0]
-  const coinType = treasury ? treasuryCapCoinType(treasury.objectType) : null
-  if (!treasury || !coinType) throw new Error('TreasuryCap without a coin type')
+  const currency = currencies[0]
+  const coinType = currency ? frameworkTypeArgument(currency.objectType, 'coin_registry', 'Currency') : null
+  if (!currency || !coinType) throw new Error('Currency without a coin type')
 
-  const ofCoin = (module: string, name: string) =>
-    created.find((c) => frameworkTypeArgument(c.objectType, module, name) === coinType)
-  const currency = ofCoin('coin_registry', 'Currency')
-  const metadataCap = ofCoin('coin_registry', 'MetadataCap')
+  const ofCoin = (module: string, name: string, what: string) => {
+    const found = created.filter((c) => frameworkTypeArgument(c.objectType, module, name) === coinType)
+    if (found.length > 1) throw new Error(`expected at most one ${what} for ${coinType}, found ${found.length}`)
+    return found[0]
+  }
+  const treasury = ofCoin('coin', 'TreasuryCap', 'TreasuryCap')
+  const metadataCap = ofCoin('coin_registry', 'MetadataCap', 'MetadataCap')
+  const initialCoin = ofCoin('coin', 'Coin', 'initial supply Coin')
   const upgradeCap = created.find((c) => isFrameworkType(c.objectType, 'package', 'UpgradeCap'))
 
   const result: PublishResult = {
     network: ctx.network,
     packageId,
     coinType,
-    treasuryCapId: treasury.objectId,
+    treasuryCapId: treasury?.objectId,
     metadataCapId: metadataCap?.objectId,
-    currencyId: currency?.objectId,
-    currencyVersion: currency?.version,
-    currencyDigest: currency?.digest,
+    initialCoinId: initialCoin?.objectId,
+    currencyId: currency.objectId,
+    currencyVersion: currency.version,
+    currencyDigest: currency.digest,
     upgradeCapId: upgradeCap?.objectId,
     digest: ctx.digest,
     feeRecipient: ctx.feeRecipient,
     feeMist: ctx.feeMist.toString(),
   }
   const currencyRef =
-    currency?.objectId && currency.version && currency.digest
+    currency.objectId && currency.version && currency.digest
       ? { objectId: currency.objectId, version: currency.version, digest: currency.digest }
       : undefined
   return { result, currencyRef }
+}
+
+/**
+ * Check that what a publish created matches the policies the config asked `init` to apply: a fixed
+ * supply has no TreasuryCap, a mintable one has exactly one; frozen metadata has no MetadataCap, updatable
+ * metadata has one; a supply above zero is one initial Coin. A mismatch means the patched constants did
+ * not do what was asked, so the caller must stop rather than route caps that should not exist.
+ *
+ * @throws {Error} naming the first mismatch.
+ */
+export function assertResultMatchesPolicy(
+  config: Pick<TokenConfig, 'supplyPolicy' | 'metadataPolicy' | 'initialSupply'>,
+  result: Pick<PublishResult, 'treasuryCapId' | 'metadataCapId' | 'initialCoinId'>,
+): void {
+  if (config.supplyPolicy === 'fixed' && result.treasuryCapId) {
+    throw new Error('the supply is meant to be fixed, but a TreasuryCap exists')
+  }
+  if (config.supplyPolicy === 'mintable' && !result.treasuryCapId) {
+    throw new Error('the supply is meant to be mintable, but no TreasuryCap was created')
+  }
+  if (config.metadataPolicy === 'frozen' && result.metadataCapId) {
+    throw new Error('the metadata is meant to be frozen, but a MetadataCap exists')
+  }
+  if (config.metadataPolicy === 'updatable' && !result.metadataCapId) {
+    throw new Error('the metadata is meant to be updatable, but no MetadataCap was created')
+  }
+  if (config.initialSupply > 0n && !result.initialCoinId) {
+    throw new Error('an initial supply was requested, but no Coin was created')
+  }
+  if (config.initialSupply === 0n && result.initialCoinId) {
+    throw new Error('no initial supply was requested, but a Coin was created')
+  }
 }

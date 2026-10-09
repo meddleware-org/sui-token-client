@@ -27,21 +27,29 @@ function baseConfig(over: Partial<TokenConfig> = {}): TokenConfig {
 const PKG = '0x' + 'a1'.repeat(32)
 const COIN = `${PKG}::mytoken::MYTOKEN`
 
-const publishChanges = (coinType: string): SuiTxResult['objectChanges'] => [
+/**
+ * What a publish creates: `init` applies the supply and metadata policy, so a fixed supply has no
+ * TreasuryCap, frozen metadata no MetadataCap, and an initial supply is one Coin.
+ */
+const publishChanges = (
+  coinType: string,
+  made: { treasury?: boolean; metadata?: boolean; coin?: boolean } = {},
+): SuiTxResult['objectChanges'] => [
   { type: 'published', packageId: PKG },
-  { type: 'created', objectType: `0x2::coin::TreasuryCap<${coinType}>`, objectId: '0xT' },
-  { type: 'created', objectType: `0x2::coin_registry::MetadataCap<${coinType}>`, objectId: '0xM' },
+  ...(made.treasury === false ? [] : [{ type: 'created', objectType: `0x2::coin::TreasuryCap<${coinType}>`, objectId: '0xT' }]),
+  ...(made.metadata === false ? [] : [{ type: 'created', objectType: `0x2::coin_registry::MetadataCap<${coinType}>`, objectId: '0xM' }]),
+  ...(made.coin ? [{ type: 'created', objectType: `0x2::coin::Coin<${coinType}>`, objectId: '0xK' }] : []),
   // version + digest are present in real Sui RPC responses and required for finalize_registration
   { type: 'created', objectType: `0x2::coin_registry::Currency<${coinType}>`, objectId: '0xC', version: '1', digest: 'CURRENCYDIGEST' },
 ]
 
 type SignAndExecute = Executor['signAndExecute']
 
-function mockExecutor(overrides: Partial<Executor> = {}): Executor {
+function mockExecutor(overrides: Partial<Executor> = {}, changes = publishChanges(COIN)): Executor {
   return {
     signAndExecute: vi.fn<SignAndExecute>(async () => ({
       digest: '0xDIGEST',
-      objectChanges: publishChanges(COIN),
+      objectChanges: changes,
       effects: { status: { status: 'success' } },
     })),
     waitForTransaction: vi.fn<Executor['waitForTransaction']>(async () => {}),
@@ -65,16 +73,51 @@ describe('deployToken', () => {
     expect(steps).toEqual(['patching', 'publishing', 'confirming', 'finalizing', 'confirming-finalize', 'done'])
   })
 
-  it('runs a finalize tx for initial supply as well', async () => {
-    const exec = mockExecutor()
+  it('reads the initial supply Coin out of the publish and finalizes with it', async () => {
+    const exec = mockExecutor({}, publishChanges(COIN, { coin: true }))
     const steps: string[] = []
-    await deployToken({
+    const result = await deployToken({
       config: baseConfig({ initialSupply: 1000n }), network: 'testnet', sender,
       feeMist: 0n, feeTreasury: treasury, gasBudget: 500_000_000n, executor: exec,
       onStep: (s) => steps.push(s),
     })
+    expect(result.initialCoinId).toBe('0xK')
     expect((exec.signAndExecute as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2)
     expect(steps).toContain('finalizing')
+  })
+
+  it('deploys a fixed supply with frozen metadata: no TreasuryCap or MetadataCap exists, and none is needed', async () => {
+    const exec = mockExecutor({}, publishChanges(COIN, { treasury: false, metadata: false, coin: true }))
+    const result = await deployToken({
+      config: baseConfig({ initialSupply: 21n, supplyPolicy: 'fixed', metadataPolicy: 'frozen' }), network: 'testnet', sender,
+      feeMist: 0n, feeTreasury: treasury, gasBudget: 500_000_000n, executor: exec,
+    })
+    expect(result.treasuryCapId).toBeUndefined()
+    expect(result.metadataCapId).toBeUndefined()
+    expect(result.initialCoinId).toBe('0xK')
+  })
+
+  it('refuses a fixed supply with nothing to mint before signing anything', async () => {
+    const exec = mockExecutor()
+    await expect(
+      deployToken({
+        config: baseConfig({ supplyPolicy: 'fixed' }), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
+        gasBudget: 1n, executor: exec,
+      }),
+    ).rejects.toThrow(/fixed supply needs an initial supply/)
+    expect(exec.signAndExecute).not.toHaveBeenCalled()
+  })
+
+  it('reports a publish whose objects contradict the chosen policy as published, with the digest', async () => {
+    // A fixed supply must leave no TreasuryCap: if one exists the patched constants did not do what was asked.
+    const exec = mockExecutor({}, publishChanges(COIN, { treasury: true, metadata: false, coin: true }))
+    const err = await deployToken({
+      config: baseConfig({ initialSupply: 5n, supplyPolicy: 'fixed', metadataPolicy: 'frozen' }), network: 'testnet', sender,
+      feeMist: 0n, feeTreasury: treasury, gasBudget: 1n, executor: exec,
+    }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(PublishedError)
+    expect((err as Error).message).toMatch(/do not match the chosen policies: the supply is meant to be fixed/)
+    expect(exec.signAndExecute).toHaveBeenCalledTimes(1) // never routed anything
   })
 
   it('refuses an invalid config before patching or signing', async () => {
@@ -127,22 +170,27 @@ describe('deployToken', () => {
 
 describe('deployToken — interrupted between publish and finalize', () => {
   const okPublish = { digest: '0xPUB', objectChanges: publishChanges(COIN), effects: { status: { status: 'success' } } }
+  // A fixed supply with an initial coin: no TreasuryCap.
+  const fixedPublish = {
+    digest: '0xPUB', objectChanges: publishChanges(COIN, { treasury: false, coin: true }), effects: { status: { status: 'success' } },
+  }
 
   it('reports a refused finalize as DeployIncompleteError with what is needed to retry', async () => {
     const exec = mockExecutor({
       signAndExecute: vi
         .fn<SignAndExecute>()
-        .mockResolvedValueOnce(okPublish)
+        .mockResolvedValueOnce(fixedPublish)
         .mockRejectedValueOnce(new Error('User rejected the request')),
     })
     const err = await deployToken({
-      config: baseConfig({ supplyPolicy: 'fixed' }), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
+      config: baseConfig({ initialSupply: 5n, supplyPolicy: 'fixed' }), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
       gasBudget: 500_000_000n, executor: exec,
     }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(DeployIncompleteError)
     const { pending } = err as DeployIncompleteError
     expect((err as Error).message).toMatch(/Published .*mytoken::MYTOKEN, but finishing its setup failed: User rejected/)
-    expect(pending.result).toMatchObject({ packageId: PKG, coinType: COIN, treasuryCapId: '0xT', metadataCapId: '0xM' })
+    expect(pending.result).toMatchObject({ packageId: PKG, coinType: COIN, initialCoinId: '0xK', metadataCapId: '0xM' })
+    expect(pending.result.treasuryCapId).toBeUndefined()
     expect(pending.currencyRef).toEqual({ objectId: '0xC', version: '1', digest: 'CURRENCYDIGEST' })
     expect(pending.config).toMatchObject({ structName: 'MYTOKEN', recipient: sender, supplyPolicy: 'fixed' })
   })
@@ -161,19 +209,20 @@ describe('deployToken — interrupted between publish and finalize', () => {
 
   it('finalizeToken finishes a pending deploy with one more signature', async () => {
     const first = mockExecutor({
-      signAndExecute: vi.fn<SignAndExecute>().mockResolvedValueOnce(okPublish).mockRejectedValueOnce(new Error('rejected')),
+      signAndExecute: vi.fn<SignAndExecute>().mockResolvedValueOnce(fixedPublish).mockRejectedValueOnce(new Error('rejected')),
     })
     const err = (await deployToken({
-      config: baseConfig({ supplyPolicy: 'fixed' }), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
+      config: baseConfig({ initialSupply: 5n, supplyPolicy: 'fixed' }), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
       gasBudget: 500_000_000n, executor: first,
     }).catch((e: unknown) => e)) as DeployIncompleteError
 
     const retry = mockExecutor()
     const steps: string[] = []
-    // The fixed-supply freeze serialises the TreasuryCap id, so give the caps real ids here.
+    // A different recipient makes the retry transfer the objects, which serialises their ids: give them real ones.
     const pending = {
       ...err.pending,
-      result: { ...err.pending.result, treasuryCapId: '0x' + 'a'.repeat(64), metadataCapId: '0x' + 'b'.repeat(64) },
+      config: { ...err.pending.config, recipient: '0x' + '3'.repeat(64) },
+      result: { ...err.pending.result, initialCoinId: '0x' + 'd'.repeat(64), metadataCapId: '0x' + 'b'.repeat(64) },
       currencyRef: { objectId: '0x' + 'c'.repeat(64), version: '1', digest: '11111111111111111111111111111111' },
     }
     const result = await finalizeToken({ pending, executor: retry, onStep: (s) => steps.push(s) })
@@ -182,36 +231,28 @@ describe('deployToken — interrupted between publish and finalize', () => {
     expect(calls).toHaveLength(1)
     const data = JSON.stringify(calls[0]![0].getData())
     expect(data).toContain('finalize_registration')
-    expect(data).toContain('public_freeze_object') // the fixed-supply policy is applied on retry
+    expect(data).toContain('TransferObjects')
+    // The policy was applied by init in the publish: a retry neither mints nor freezes.
+    expect(data).not.toContain('public_freeze_object')
+    expect(data).not.toContain('"mint"')
     expect(steps).toEqual(['finalizing', 'confirming-finalize', 'done'])
   })
 
-  it('finalizeToken refuses a retry that could mint twice unless the supply can be checked, and skips it once the mint ran', async () => {
+  it('finalizeToken has nothing to run when there is no pending currency and the recipient is the sender', async () => {
     const first = mockExecutor({
       signAndExecute: vi.fn<SignAndExecute>().mockResolvedValueOnce(okPublish).mockRejectedValueOnce(new Error('network error after submit')),
     })
     const err = (await deployToken({
-      config: baseConfig({ initialSupply: 1000n }), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
+      config: baseConfig({ initialSupply: 0n }), network: 'testnet', sender, feeMist: 0n, feeTreasury: treasury,
       gasBudget: 1n, executor: first,
     }).catch((e: unknown) => e)) as DeployIncompleteError
-    // The unsafe shape: no Currency reference, mintable, recipient is the sender.
-    const pending = {
-      ...err.pending,
-      result: { ...err.pending.result, treasuryCapId: '0x' + 'a'.repeat(64), metadataCapId: '0x' + 'b'.repeat(64) },
-      currencyRef: undefined,
-    }
+    const pending = { ...err.pending, currencyRef: undefined }
     const retry = mockExecutor()
-    await expect(finalizeToken({ pending, executor: retry })).rejects.toThrow(/mint the initial supply twice/)
-    expect(retry.signAndExecute).not.toHaveBeenCalled()
-
-    const supply = (value: string) => ({ core: { getObject: vi.fn(async () => ({ object: { json: { total_supply: { value } } } })) } })
-    // The first attempt did land: the cap already holds the initial supply, so nothing is submitted.
-    const done = await finalizeToken({ pending, executor: retry, client: supply('1000000000000') })
+    const steps: string[] = []
+    const done = await finalizeToken({ pending, executor: retry, onStep: (s) => steps.push(s) })
     expect(done.coinType).toBe(COIN)
     expect(retry.signAndExecute).not.toHaveBeenCalled()
-    // It did not land: the retry runs.
-    await finalizeToken({ pending, executor: retry, client: supply('0') })
-    expect(retry.signAndExecute).toHaveBeenCalledTimes(1)
+    expect(steps).toEqual(['done'])
   })
 
   it('does not invite a retry when the finalize executed but its confirmation failed', async () => {

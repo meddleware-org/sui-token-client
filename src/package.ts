@@ -43,6 +43,9 @@ function applyDocPlaceholders(input: string, cfg: TokenConfig): string {
     XDECIMALSX: String(cfg.decimals),
     XPROJECTNAMEX: cfg.projectName,
     XPACKAGEDESCRIPTIONX: cfg.packageDescription,
+    XINITIALSUPPLYX: String(cfg.initialSupply),
+    XSUPPLYPOLICYX: cfg.supplyPolicy,
+    XMETADATAPOLICYX: cfg.metadataPolicy,
   }
   return replaceMany(input, map)
 }
@@ -93,6 +96,9 @@ function renderSource(cfg: TokenConfig): string {
     'b"TEMPLATE_NAME"': `b"${cfg.name}"`,
     'b"TEMPLATE_DESCRIPTION"': `b"${cfg.description}"`,
     'b"TEMPLATE_ICON_URL"': `b"${cfg.iconUrl}"`,
+    'const INITIAL_SUPPLY: u64 = 1_000_000_007;': `const INITIAL_SUPPLY: u64 = ${cfg.initialSupply * 10n ** BigInt(cfg.decimals)};`,
+    'const FIXED_SUPPLY: bool = true;': `const FIXED_SUPPLY: bool = ${cfg.supplyPolicy === 'fixed'};`,
+    'const FROZEN_METADATA: bool = false;': `const FROZEN_METADATA: bool = ${cfg.metadataPolicy === 'frozen'};`,
   })
 }
 
@@ -100,6 +106,7 @@ function renderPublishScript(cfg: TokenConfig): string {
   let out = replaceAll(TEMPLATE_FILES['scripts/publish.sh'], 'SUI_TOKEN_TEMPLATE', cfg.structName)
   out = replaceAll(out, 'XMODULENAMEX', cfg.moduleName)
   out = replaceAll(out, 'XPACKAGENAMEX', cfg.packageName)
+  out = replaceAll(out, 'XMETADATAPOLICYX', cfg.metadataPolicy)
   return out
 }
 
@@ -107,21 +114,20 @@ function renderPublishScript(cfg: TokenConfig): string {
 const TEMPLATE_LICENSE_LINE = /^(?:CC0 1\.0 Universal|BSD Zero Clause License).*$/m
 
 /**
- * How the chosen supply and metadata policies are enforced, and what the coin registry does and does
- * not show. A fixed supply and frozen metadata are enforced by FREEZING the caps, not by recording
- * the policy in the registry's `Currency`, so registry-based wallets and explorers cannot show them.
+ * What the chosen supply and metadata policies mean for this coin. `init` applied them in the publish
+ * transaction, so the coin registry records them and registry-based wallets and explorers can show them.
  */
 function policyNote(cfg: TokenConfig): string {
   const lines = ['## Supply and metadata policies', '']
   lines.push(
     cfg.supplyPolicy === 'fixed'
-      ? '- **Fixed supply**: the TreasuryCap was frozen after the initial mint, so no further coins can ever be minted. The coin registry still reports the supply as unknown, so wallets and explorers that read the registry cannot show this; verify it by checking that the TreasuryCap object is frozen (immutable).'
-      : '- **Mintable supply**: the TreasuryCap is held by the recipient, who can mint more at any time.',
+      ? '- **Fixed supply**: the whole supply was minted when the package was published, and the coin registry took the TreasuryCap (`make_supply_fixed`). No TreasuryCap exists and no further coins can ever be minted; the registry reports the supply as fixed, so wallets and explorers that read it can show this.'
+      : '- **Mintable supply**: the TreasuryCap is held by the recipient, who can mint more at any time. The registry does not report the supply as fixed.',
   )
   lines.push(
     cfg.metadataPolicy === 'frozen'
-      ? '- **Frozen metadata**: the MetadataCap was frozen, so the name, symbol, description and icon can never change. The registry still shows the metadata capability as claimed; verify it by checking that the MetadataCap object is frozen (immutable).'
-      : '- **Updatable metadata**: the MetadataCap is held by the recipient, who can edit the metadata.',
+      ? '- **Frozen metadata**: the MetadataCap was deleted when the package was published, so the name, symbol, description and icon can never change. The registry reports the metadata capability as deleted.'
+      : '- **Updatable metadata**: the MetadataCap is held by the recipient, who can edit the description and icon.',
   )
   lines.push(
     cfg.packagePolicy === 'immutable'

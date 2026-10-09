@@ -11,10 +11,8 @@ describe('ABI table (feeds the live drift check)', () => {
     const calls = allMoveCalls()
     for (const c of calls) expect(c.package).toBe(normalizeSuiAddress('0x2'))
     expect(calls.map((c) => `${c.module}::${c.function}`).sort()).toEqual([
-      'coin::mint',
       'coin_registry::finalize_registration',
       'package::make_immutable',
-      'transfer::public_freeze_object',
     ])
   })
 })

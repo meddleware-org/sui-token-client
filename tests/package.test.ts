@@ -48,10 +48,11 @@ describe('rendered source and docs are one-pass (F1)', () => {
   })
 
   it('documents how the supply and metadata policies are enforced and what the registry shows', () => {
-    const fixed = buildPackageFiles({ config: { ...baseConfig, supplyPolicy: 'fixed', metadataPolicy: 'frozen' } })['README.md'] as string
+    const fixed = buildPackageFiles({ config: { ...baseConfig, initialSupply: 21n, supplyPolicy: 'fixed', metadataPolicy: 'frozen' } })['README.md'] as string
     expect(fixed).toContain('## Supply and metadata policies')
-    expect(fixed).toMatch(/Fixed supply.*frozen.*registry still reports the supply as unknown/s)
-    expect(fixed).toMatch(/Frozen metadata/)
+    expect(fixed).toMatch(/Fixed supply.*registry took the TreasuryCap.*registry reports the supply as fixed/s)
+    expect(fixed).toMatch(/Frozen metadata.*deleted.*registry reports the metadata capability as deleted/s)
+    expect(fixed).not.toMatch(/registry still reports/)
     const open = buildPackageFiles({ config: { ...baseConfig, packagePolicy: 'upgradeable' } })['README.md'] as string
     expect(open).toMatch(/Mintable supply/)
     expect(open).toMatch(/UpgradeCap was sent to the recipient/)
@@ -233,5 +234,30 @@ describe('generatePackageZip', () => {
     expect(Object.keys(entries)).toContain('my_token/Move.toml')
     expect(Object.keys(entries)).toContain('my_token/sources/mytoken.move')
     expect(strFromU8(entries['my_token/Move.toml']!)).toContain('name = "my_token"')
+  })
+})
+
+describe('supply and metadata policy in the generated source', () => {
+  const src = (over: Partial<TokenConfig>) => buildPackageFiles({ config: { ...baseConfig, ...over } })['sources/mytoken.move'] as string
+
+  it('writes the raw initial supply (whole tokens x 10^decimals) and both flags', () => {
+    const s = src({ initialSupply: 1000n, decimals: 6, supplyPolicy: 'fixed', metadataPolicy: 'frozen' })
+    expect(s).toContain('const INITIAL_SUPPLY: u64 = 1000000000;')
+    expect(s).toContain('const FIXED_SUPPLY: bool = true;')
+    expect(s).toContain('const FROZEN_METADATA: bool = true;')
+  })
+
+  it('defaults to no supply, mintable, updatable', () => {
+    const s = src({})
+    expect(s).toContain('const INITIAL_SUPPLY: u64 = 0;')
+    expect(s).toContain('const FIXED_SUPPLY: bool = false;')
+    expect(s).toContain('const FROZEN_METADATA: bool = false;')
+  })
+
+  it('carries the metadata policy into publish.sh and the policies into the docs', () => {
+    const f = buildPackageFiles({ config: { ...baseConfig, initialSupply: 7n, supplyPolicy: 'fixed', metadataPolicy: 'frozen' } })
+    expect(f['scripts/publish.sh']).toContain('METADATA_POLICY="frozen"')
+    expect(f['CLAUDE.md']).toContain('`fixed`')
+    expect(f['CLAUDE.md']).toMatch(/initial supply `7` whole tokens/)
   })
 })

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.9] - 2026-10-09
+
+### Changed
+
+- **Breaking (pre-v0.2):** the supply and metadata policies are applied by the coin's own `init` in the publish transaction (template 1.0.8: `INITIAL_SUPPLY`, `FIXED_SUPPLY`, `FROZEN_METADATA`), so the coin registry records a fixed supply and a deleted MetadataCap. `buildFinalizeTransaction` only registers the currency and moves what exists (new `initialCoinId`; `treasuryCapId`/`metadataCapId` optional; no freezing or minting); `finalizeToken` loses its `client` option (a repeat is rejected without effect); `PublishResult.initialCoinId`, `finalizeHasWork`, `assertResultMatchesPolicy` added; a fixed supply needs an initial supply above zero. Fixed: the patcher now merges equal constant-pool entries (the verifier rejects duplicates: a symbol equal to the name, empty strings, both flags false)
+
 ## [0.0.8] - 2026-10-09
 
 ### Changed

@@ -7,6 +7,7 @@
 import { requestSuiFromFaucetV2 } from '@mysten/sui/faucet'
 import { SuiGrpcClient } from '@mysten/sui/grpc'
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
+import { deriveObjectID } from '@mysten/sui/utils'
 
 const { DeployIncompleteError, deployToken, finalizeToken, toSuiTxResult } = await import('../src/deploy.ts')
 const { listMyTokens } = await import('../src/tokens.ts')
@@ -90,9 +91,56 @@ if (!tokens.some((t) => t.coinType === result.coinType && t.treasuryCapId === re
   fail('listMyTokens does not list the new coin')
 }
 
+// The registry's Currency records the policies `init` applied. Mintable/updatable: neither is recorded.
+// `finalize_registration` replaces the pending Currency with a shared one at a derived address under the registry (0xc).
+const registryState = async (coinType) => {
+  const objectId = deriveObjectID('0xc', `0x2::coin_registry::CurrencyKey<${coinType}>`, new Uint8Array([0]))
+  return JSON.stringify((await client.core.getObject({ objectId, include: { json: true } })).object.json)
+}
+const mintableState = await registryState(result.coinType)
+if (/Fixed/.test(mintableState) || /Deleted/.test(mintableState)) fail(`a mintable, updatable coin is recorded as fixed/deleted: ${mintableState}`)
+if (!result.metadataCapId || !result.treasuryCapId) fail('a mintable, updatable coin must keep both caps')
+
 const files = buildPackageFiles({ config: { ...config, structName: 'E2ETOKEN' }, result })
 if (files['Published.toml']) fail('a localnet result must not produce Published.toml')
 if (!files['deployments.md'].includes(result.packageId)) fail('deployments.md lacks the package id')
+
+// Fixed supply + frozen metadata: init applies both in the publish transaction, so no cap ever exists and
+// the registry records them (wallets and explorers read these).
+const fixedConfig = { ...config, packageName: 'e2e_fixed', moduleName: 'e2efixed', symbol: 'FIX', supplyPolicy: 'fixed', metadataPolicy: 'frozen' }
+const fixed = await deployToken({
+  config: fixedConfig,
+  network: 'localnet',
+  sender,
+  feeMist: 0n,
+  feeTreasury: '0x' + '9'.repeat(64),
+  gasBudget: 500_000_000n,
+  executor,
+})
+if (fixed.treasuryCapId || fixed.metadataCapId) fail('a fixed supply with frozen metadata must have no TreasuryCap or MetadataCap')
+const fixedBalance = await client.getBalance({ owner: sender, coinType: fixed.coinType })
+if (BigInt(fixedBalance.balance.balance) !== 1_000n * 10n ** 6n) fail(`fixed supply: expected 1000 tokens, got ${fixedBalance.balance.balance}`)
+const fixedState = await registryState(fixed.coinType)
+if (!/Fixed/.test(fixedState)) fail(`the registry does not record the fixed supply: ${fixedState}`)
+if (!/Deleted/.test(fixedState)) fail(`the registry does not record the deleted MetadataCap: ${fixedState}`)
+const owned = await client.core.listOwnedObjects({ owner: sender })
+if (owned.objects.some((o) => /TreasuryCap|MetadataCap/.test(o.type) && o.type.includes(fixed.packageId.slice(2)))) {
+  fail('the sender owns a cap of the fixed, frozen coin')
+}
+console.log(`fixed ${fixed.coinType}: no caps exist; the registry records Fixed supply and Deleted metadata cap`)
+
+// Equal constants: a symbol that equals the name, and an empty description and icon, would leave duplicate
+// entries in the constant pool, which the bytecode verifier rejects at publish. The patcher merges them.
+const same = await deployToken({
+  config: { ...config, packageName: 'e2e_same', moduleName: 'e2esame', symbol: 'SAME', name: 'SAME', description: '', iconUrl: '', initialSupply: 0n },
+  network: 'localnet',
+  sender,
+  feeMist: 0n,
+  feeTreasury: '0x' + '9'.repeat(64),
+  gasBudget: 500_000_000n,
+  executor,
+})
+console.log(`equal constants published and verified: ${same.coinType}`)
 
 // Recovery: refuse the finalize signature, then finish the published coin with finalizeToken.
 let refused = false
@@ -124,9 +172,9 @@ try {
 }
 const finished = await finalizeToken({ pending, executor })
 const retried = await client.getBalance({ owner: sender, coinType: finished.coinType })
-if (BigInt(retried.balance.balance) !== 1_000n * 10n ** 6n) fail(`retry minted ${retried.balance.balance}, expected 1000 tokens`)
-const cap = await client.getObject({ objectId: finished.treasuryCapId })
-if (cap.object?.owner?.$kind !== 'Immutable') fail('fixed supply: the TreasuryCap was not frozen on retry')
-console.log(`recovered ${finished.coinType}: finalize refused once, finished with finalizeToken (supply minted, cap frozen)`)
+if (BigInt(retried.balance.balance) !== 1_000n * 10n ** 6n) fail(`retry left ${retried.balance.balance}, expected 1000 tokens`)
+if (finished.treasuryCapId) fail('fixed supply: a TreasuryCap exists after the retry')
+if (!/Fixed/.test(await registryState(finished.coinType))) fail('fixed supply: the registry does not record it after the retry')
+console.log(`recovered ${finished.coinType}: finalize refused once, finished with finalizeToken (supply minted at publish, fixed in the registry)`)
 
-console.log('e2e-localnet: OK — publish, finalize, recovery, balance, listMyTokens and package generation')
+console.log('e2e-localnet: OK — publish, finalize, fixed/frozen registry state, recovery, balance, listMyTokens and package generation')

@@ -78,9 +78,9 @@ export function validateIdentifier(value: string): string | null {
  * paid gas. `scripts/gen-template.mjs` checks this list against the shipped module.
  */
 export const TEMPLATE_IMPORTED_IDENTIFIERS: ReadonlySet<string> = new Set([
-  'CurrencyInitializer', 'MetadataCap', 'String', 'TreasuryCap', 'TxContext', 'coin', 'coin_registry',
-  'dummy_field', 'finalize', 'init', 'new_currency_with_otw', 'public_transfer', 'sender', 'string',
-  'transfer', 'tx_context', 'utf8',
+  'Coin', 'CurrencyInitializer', 'MetadataCap', 'String', 'TreasuryCap', 'TxContext', 'coin', 'coin_registry',
+  'dummy_field', 'finalize', 'finalize_and_delete_metadata_cap', 'init', 'init_with', 'make_supply_fixed_init',
+  'mint', 'new_currency_with_otw', 'public_transfer', 'sender', 'string', 'transfer', 'tx_context', 'utf8',
 ])
 
 /**
@@ -153,6 +153,11 @@ export function assertTokenConfig(config: TokenConfig): void {
   }
   if (config.initialSupply < 0n || config.initialSupply * 10n ** BigInt(config.decimals) > MAX_U64) {
     throw new Error('Invalid initial supply: exceeds the maximum for this decimal precision.')
+  }
+  // The framework refuses to fix an empty supply (it could never be minted), and `init` applies the
+  // policy in the publish transaction, so the publish itself would abort after the user signed.
+  if (config.supplyPolicy === 'fixed' && config.initialSupply === 0n) {
+    throw new Error('Invalid supply policy: a fixed supply needs an initial supply above zero.')
   }
   if (config.recipient && !SUI_ADDRESS.test(config.recipient)) {
     throw new Error('Invalid recipient: expected 0x followed by 64 hex digits.')

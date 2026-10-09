@@ -54,6 +54,12 @@ export interface PatchParams {
   description: string
   iconUrl: string
   decimals: number
+  /** Raw units (whole tokens x 10^decimals) `init` mints to the publisher. Default 0: none. */
+  initialSupply?: bigint
+  /** `true`: `init` hands the TreasuryCap to the coin registry (needs `initialSupply > 0`). Default false. */
+  fixedSupply?: boolean
+  /** `true`: `init` deletes the MetadataCap. Default false. */
+  frozenMetadata?: boolean
 }
 
 interface DecodedConstant {
@@ -64,6 +70,49 @@ interface DecodedConstant {
 interface DecodedModule {
   identifiers: string[]
   constant_pool: DecodedConstant[]
+  function_defs: { code?: { code?: unknown[] } | null }[]
+}
+
+const MAX_U64 = (1n << 64n) - 1n
+
+/** BCS bytes of a `u64` constant (little-endian). */
+function u64Bytes(value: bigint): number[] {
+  return Array.from({ length: 8 }, (_, i) => Number((value >> BigInt(8 * i)) & 0xffn))
+}
+
+/**
+ * Merge constant-pool entries with the same type and value, and point every `LdConst` at the merged
+ * entry. The Move compiler never emits duplicates, and the bytecode verifier REJECTS a module whose pool
+ * has any (`DUPLICATE_ELEMENT`, at publish, after gas is spent). Patching can create them: two
+ * constants that were distinct in the template become equal when the caller picks the same value (a symbol
+ * and a name that match, two empty strings, `FIXED_SUPPLY` and `FROZEN_METADATA` both false).
+ */
+function dedupeConstantPool(json: DecodedModule): void {
+  const seen = new Map<string, number>()
+  const pool: DecodedConstant[] = []
+  const remap: number[] = []
+  json.constant_pool.forEach((c, i) => {
+    const key = JSON.stringify([c.type_, c.data])
+    let at = seen.get(key)
+    if (at === undefined) {
+      at = pool.length
+      pool.push(c)
+      seen.set(key, at)
+    }
+    remap[i] = at
+  })
+  if (pool.length === json.constant_pool.length) return
+  json.constant_pool = pool
+  for (const def of json.function_defs) {
+    for (const ins of def.code?.code ?? []) {
+      if (ins !== null && typeof ins === 'object' && 'LdConst' in ins) {
+        const op = ins as { LdConst: number }
+        const to = remap[op.LdConst]
+        if (to === undefined) throw new Error('constant index out of range (artefact drift?)')
+        op.LdConst = to
+      }
+    }
+  }
 }
 
 /** BCS bytes of a `vector<u8>` / `String` constant (uleb length + utf8). */
@@ -114,6 +163,24 @@ export async function patchTemplateModule(params: PatchParams): Promise<Uint8Arr
   if (!u8) throw new Error(`template U8 constant ${TEMPLATE_DEFAULTS.decimals} not found (artefact drift?)`)
   u8.data = [params.decimals]
 
+  // The supply and metadata policy: one U64 and two Bool entries, each resolved from the pristine pool.
+  const initialSupply = params.initialSupply ?? 0n
+  const fixedSupply = params.fixedSupply ?? false
+  const frozenMetadata = params.frozenMetadata ?? false
+  if (initialSupply < 0n || initialSupply > MAX_U64) throw new Error('initial supply must fit a u64')
+  if (fixedSupply && initialSupply === 0n) {
+    throw new Error('a fixed supply needs an initial supply above zero (the framework refuses to fix an empty one)')
+  }
+  const supplySlot = json.constant_pool.find((c) => c.type_ === 'U64' && sameBytes(c.data, u64Bytes(BigInt(TEMPLATE_DEFAULTS.initialSupply))))
+  const fixedSlot = json.constant_pool.find((c) => c.type_ === 'Bool' && sameBytes(c.data, [TEMPLATE_DEFAULTS.fixedSupply ? 1 : 0]))
+  const frozenSlot = json.constant_pool.find((c) => c.type_ === 'Bool' && sameBytes(c.data, [TEMPLATE_DEFAULTS.frozenMetadata ? 1 : 0]))
+  if (!supplySlot || !fixedSlot || !frozenSlot || fixedSlot === frozenSlot) {
+    throw new Error('template supply or metadata policy constants not found (artefact drift?)')
+  }
+  supplySlot.data = u64Bytes(initialSupply)
+  fixedSlot.data = [fixedSupply ? 1 : 0]
+  frozenSlot.data = [frozenMetadata ? 1 : 0]
+
   // Resolve every target slot from the PRISTINE pool before writing any of them. Looking each field
   // up in turn, after earlier fields were overwritten, lets a value equal to a later template default
   // (say a symbol of "TEMPLATE_NAME") capture the wrong slot.
@@ -137,6 +204,7 @@ export async function patchTemplateModule(params: PatchParams): Promise<Uint8Arr
     throw new Error('template constants are not distinct (artefact drift?)')
   }
   for (const { entry, next } of slots) entry.data = vecU8(next)
+  dedupeConstantPool(json)
 
   const out = new Uint8Array(serialize(json as unknown as Parameters<typeof serialize>[0]))
 
@@ -153,6 +221,14 @@ export async function patchTemplateModule(params: PatchParams): Promise<Uint8Arr
   }
   const dec = check.constant_pool.filter((c) => c.type_ === 'U8' && sameBytes(c.data, [params.decimals]))
   if (dec.length === 0) throw new Error('patched module does not carry the requested decimals')
+  const carries = (type: string, data: number[]) => check.constant_pool.some((c) => c.type_ === type && sameBytes(c.data, data))
+  if (
+    !carries('U64', u64Bytes(initialSupply)) ||
+    !carries('Bool', [fixedSupply ? 1 : 0]) ||
+    !carries('Bool', [frozenMetadata ? 1 : 0])
+  ) {
+    throw new Error('patched module does not carry the requested supply and metadata policy')
+  }
   return out
 }
 
@@ -167,5 +243,8 @@ export function patchTokenModule(config: TokenConfig): Promise<Uint8Array> {
     description: config.description,
     iconUrl: config.iconUrl,
     decimals: config.decimals,
+    initialSupply: config.initialSupply * 10n ** BigInt(config.decimals),
+    fixedSupply: config.supplyPolicy === 'fixed',
+    frozenMetadata: config.metadataPolicy === 'frozen',
   })
 }

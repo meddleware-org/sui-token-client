@@ -1,13 +1,15 @@
 // PTB builders for deploying a coin.
 //
-// Two transactions, because the one-time-witness `init` creates the TreasuryCap and MetadataCap and
-// sends them to the sender — they are not results of `tx.publish`, so they can only be used after the
-// publish executes:
+// Two transactions, because the one-time-witness `init` creates the coin's objects and sends them to
+// the sender — they are not results of `tx.publish`, so they can only be used after the publish
+// executes:
 //
 //   1. buildPublishTransaction — publish the patched module, take the platform fee, and apply the
 //      UpgradeCap policy (make immutable, or send it to the recipient).
-//   2. buildFinalizeTransaction — register the currency, mint the initial supply, apply the supply
-//      and metadata policies, and move the caps and supply to the recipient.
+//   2. buildFinalizeTransaction — register the currency and move what `init` left with the sender
+//      (the initial supply, the TreasuryCap unless the supply is fixed, the MetadataCap unless the
+//      metadata is frozen) to the recipient. The supply and metadata policies are applied by `init`
+//      itself, in the publish transaction, so they are recorded in the coin registry.
 
 import { Transaction } from '@mysten/sui/transactions'
 import { toBase64 } from '@mysten/sui/utils'
@@ -71,8 +73,12 @@ export interface CurrencyRef {
 export interface BuildFinalizeArgs {
   config: TokenConfig
   coinType: string
-  treasuryCapId: string
-  metadataCapId: string
+  /** The TreasuryCap `init` handed to the sender: present exactly when the supply is mintable. */
+  treasuryCapId?: string
+  /** The MetadataCap `init` handed to the sender: present exactly when the metadata is updatable. */
+  metadataCapId?: string
+  /** The initial supply `init` minted to the sender: present exactly when the initial supply is above zero. */
+  initialCoinId?: string
   /**
    * When given, `finalize_registration` runs first, promoting the pending `Currency<T>` to a shared,
    * discoverable object so wallets read the coin's decimals.
@@ -82,9 +88,27 @@ export interface BuildFinalizeArgs {
   gasBudget: bigint
 }
 
-/** Finalize PTB: register the currency, mint the initial supply, apply policies, route the caps. */
+/**
+ * What a finalize transaction would do: register the currency (when there is a pending reference) and move
+ * whatever `init` left with the sender to the recipient. False when there is nothing to do (no reference and
+ * the recipient is the sender), in which case there is no transaction to run.
+ */
+export function finalizeHasWork(args: Pick<BuildFinalizeArgs, 'config' | 'currencyRef' | 'sender'>): boolean {
+  const recipient = args.config.recipient || args.sender
+  return Boolean(args.currencyRef) || recipient.toLowerCase() !== args.sender.toLowerCase()
+}
+
+/**
+ * Finalize PTB: register the currency and route what `init` created to the recipient.
+ *
+ * The supply and metadata policies are NOT applied here. `init` applied them in the publish transaction
+ * (a fixed supply was handed to the coin registry; frozen metadata deleted its cap), so there is no cap
+ * left to freeze and nothing to mint. This transaction only moves objects, and a repeat of one that already
+ * ran fails atomically (the receiving reference is stale and the sender no longer owns the objects).
+ */
 export function buildFinalizeTransaction(args: BuildFinalizeArgs): Transaction {
   const { config, coinType } = args
+  assertObjectsMatchPolicy(args)
   const tx = new Transaction()
   tx.setSender(args.sender)
   const recipient = config.recipient || args.sender
@@ -97,38 +121,26 @@ export function buildFinalizeTransaction(args: BuildFinalizeArgs): Transaction {
     })
   }
 
-  if (config.initialSupply > 0n) {
-    const amount = config.initialSupply * 10n ** BigInt(config.decimals)
-    const minted = tx.moveCall({
-      target: `${SUI_FRAMEWORK}::coin::mint`,
-      typeArguments: [coinType],
-      arguments: [tx.object(args.treasuryCapId), tx.pure.u64(amount)],
-    })
-    tx.transferObjects([minted], recipient)
-  }
-
-  // fixed → freeze the TreasuryCap (no further minting); mintable → keep it with the recipient.
-  if (config.supplyPolicy === 'fixed') {
-    tx.moveCall({
-      target: `${SUI_FRAMEWORK}::transfer::public_freeze_object`,
-      typeArguments: [`${SUI_FRAMEWORK}::coin::TreasuryCap<${coinType}>`],
-      arguments: [tx.object(args.treasuryCapId)],
-    })
-  } else if (recipient.toLowerCase() !== args.sender.toLowerCase()) {
-    tx.transferObjects([tx.object(args.treasuryCapId)], recipient)
-  }
-
-  // frozen → freeze the MetadataCap (no further metadata edits); updatable → keep it.
-  if (config.metadataPolicy === 'frozen') {
-    tx.moveCall({
-      target: `${SUI_FRAMEWORK}::transfer::public_freeze_object`,
-      typeArguments: [`${SUI_FRAMEWORK}::coin_registry::MetadataCap<${coinType}>`],
-      arguments: [tx.object(args.metadataCapId)],
-    })
-  } else if (recipient.toLowerCase() !== args.sender.toLowerCase()) {
-    tx.transferObjects([tx.object(args.metadataCapId)], recipient)
+  const held = [args.initialCoinId, args.treasuryCapId, args.metadataCapId].filter((id): id is string => Boolean(id))
+  if (recipient.toLowerCase() !== args.sender.toLowerCase() && held.length > 0) {
+    tx.transferObjects(held.map((id) => tx.object(id)), recipient)
   }
 
   tx.setGasBudget(args.gasBudget)
   return tx
+}
+
+/** Refuse object ids that cannot exist under the chosen policies (a caller wiring the wrong result). */
+function assertObjectsMatchPolicy(args: BuildFinalizeArgs): void {
+  const { config } = args
+  if (config.supplyPolicy === 'fixed' && args.treasuryCapId) {
+    throw new Error('A fixed supply has no TreasuryCap: init handed it to the coin registry.')
+  }
+  if (config.supplyPolicy === 'mintable' && !args.treasuryCapId) throw new Error('A mintable supply needs its TreasuryCap id.')
+  if (config.metadataPolicy === 'frozen' && args.metadataCapId) {
+    throw new Error('Frozen metadata has no MetadataCap: init deleted it.')
+  }
+  if (config.metadataPolicy === 'updatable' && !args.metadataCapId) throw new Error('Updatable metadata needs its MetadataCap id.')
+  if (config.initialSupply > 0n && !args.initialCoinId) throw new Error('An initial supply needs the minted Coin id.')
+  if (config.initialSupply === 0n && args.initialCoinId) throw new Error('No initial supply was requested, but a Coin id was given.')
 }

@@ -19,7 +19,8 @@ const publish = (packagePolicy: TokenConfig['packagePolicy']) =>
   })
 const finalize = (over: Partial<TokenConfig>) =>
   client.buildFinalizeTransaction({
-    config: { ...config, ...over }, coinType, treasuryCapId: id(3), metadataCapId: id(4),
+    config: { ...config, ...over }, coinType, treasuryCapId: over.supplyPolicy === 'mintable' ? id(3) : undefined,
+    metadataCapId: over.metadataPolicy === 'updatable' ? id(4) : undefined, initialCoinId: (over.initialSupply ?? 1n) > 0n ? id(6) : undefined,
     currencyRef: { objectId: id(5), version: '1', digest: '11111111111111111111111111111111' }, sender, gasBudget: 1n,
   })
 

@@ -112,7 +112,13 @@ describe('assertTokenConfig', () => {
     expect(bad({ decimals: 19 })).toThrow(/decimals/)
     expect(bad({ decimals: -1 })).toThrow(/decimals/)
     expect(bad({ decimals: 1.5 })).toThrow(/decimals/)
-    expect(() => assertTokenConfig({ ...good, decimals: 0, initialSupply: 0n })).not.toThrow()
+    expect(() => assertTokenConfig({ ...good, decimals: 0, initialSupply: 1n })).not.toThrow()
+  })
+
+  it('refuses a fixed supply with nothing to mint (the framework would abort the publish)', () => {
+    expect(bad({ supplyPolicy: 'fixed', initialSupply: 0n })).toThrow(/fixed supply needs an initial supply/)
+    expect(() => assertTokenConfig({ ...good, supplyPolicy: 'fixed', initialSupply: 1n })).not.toThrow()
+    expect(() => assertTokenConfig({ ...good, supplyPolicy: 'mintable', initialSupply: 0n })).not.toThrow()
   })
 
   it('rejects a supply that overflows u64 at the chosen precision', () => {
