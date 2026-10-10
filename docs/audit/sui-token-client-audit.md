@@ -32,7 +32,7 @@ and Rust lenses, SITE, PLATFORM.
 
 - npm `@meddleware/sui-token-client` **0.0.10** (`latest`), published from tag `v0.0.10` = `e70a5ab`,
   with an SLSA v1 provenance attestation (checked 2026-10-09). `main` is ahead of it: `fb7301b` (a
-  Dependabot lockfile-only bump) and the 0.0.11 fix wave of 2026-10-10 (commit pending; not yet released).
+  Dependabot lockfile-only bump) and the 0.0.11 fix wave of 2026-10-10 (commit `994b951`; not yet released).
   Baseline of this audit: 0.0.5 at `6f09bb2`, 2026-10-02.
 - Releases since the baseline: 0.0.6 `6d3b7c2`, 0.0.7 `bd58328`, 0.0.8 `75dd34a` (template 1.0.7
   regeneration), 0.0.9 `677330f` and 0.0.10 `e70a5ab` (both 2026-10-09; template 1.0.8).
@@ -693,7 +693,7 @@ the ephemeral key is funded. No test covers the guard itself (it is a script, ex
 
 ### F11 — Documentation drift
 
-**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit pending)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit `994b951`)
 
 **Resolution (2026-10-10):** `SECURITY.md` "What the policies mean" is rewritten to the `init`-applied design (the
 registry records a fixed supply and a deleted MetadataCap; finalize mints nothing; a repeat is refused by the
@@ -873,7 +873,7 @@ publish in `e2e:localnet` is verified on-chain (2026-10-09).
 
 ### F17 — `@mysten/sui` is a runtime dependency, not a peer dependency
 
-**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit pending; decision D34)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit `994b951`; decision D34)
 **Where:** `package.json` `dependencies` (`@mysten/sui` `^2.33.1`); `README.md` install line
 (`npm install @meddleware/sui-token-client @mysten/sui`).
 
@@ -902,7 +902,7 @@ patch bump, no shim.
 
 ### F18 — The generated `publish.sh` and the README licence line still substitute naively
 
-**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit pending)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit `994b951`)
 **Where:** `src/package.ts:105-111` (`renderPublishScript`: four sequential `replaceAll` calls);
 `:146-153` (`renderReadmeLicense`: `String.replace` with the licence name as the replacement string).
 
@@ -931,7 +931,7 @@ function replacer for the licence line. Add one test per case. Single solution, 
 
 ### F19 — `CHAIN_IDS` is indexed by a caller-supplied network name without `Object.hasOwn`
 
-**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit pending)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit `994b951`)
 **Where:** `src/package.ts:54-57, 235` (`CHAIN_IDS[result.network]`).
 
 **Issue:** the TS lens (*Caller-keyed lookups*) asks for `Object.hasOwn` or a `Map` when a record is
@@ -978,7 +978,7 @@ choice). Left ACCEPTED-RISK; the options and the recommendation are in OQ4.
 
 ### F21 — Generated packages carry no `Move.lock` (client half of template F7)
 
-**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit pending; found 2026-10-10)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit `994b951`; found 2026-10-10)
 **Where:** `src/package.ts` `buildPackageFiles`; `scripts/gen-template.mjs` `FILES`.
 
 **Issue:** `@meddleware/sui-token-template` 1.0.9 ships `Move.lock` (the framework revision it was built and tested
@@ -1201,9 +1201,9 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
 - [x] `npm pack` contents verified (30 files); B.TS-2 inventory complete — B.TS-1, B.TS-2
 - [x] audit gate in CI and publish (`npm audit --audit-level=high`, 0) and `npm ci` — B.TS-3
 - [x] consumed ids: system ids only, chain ids drift-tested; ABI-drift test green — B.SC-1, A12
-- [x] shared-dependency matrix aligned with ADR-0001: `@mysten/sui` is a peer (`^2.33.2`) and a devDependency; `npm ls --all` in CI — F17 (0.0.11, commit pending; `package.json`, `node-ci.yml`)
-- [x] `SECURITY.md` consistent with the code — F11 (0.0.11, commit pending; rewritten policies section, README, `AGENTS.md`, `CLAUDE.md`)
-- [x] generated packages carry the template's `Move.lock` (root pin renamed) — F21 (0.0.11, commit pending; template 1.0.9, template audit F7 client half)
+- [x] shared-dependency matrix aligned with ADR-0001: `@mysten/sui` is a peer (`^2.33.2`) and a devDependency; `npm ls --all` in CI — F17 (0.0.11, commit `994b951`; `package.json`, `node-ci.yml`)
+- [x] `SECURITY.md` consistent with the code — F11 (0.0.11, commit `994b951`; rewritten policies section, README, `AGENTS.md`, `CLAUDE.md`)
+- [x] generated packages carry the template's `Move.lock` (root pin renamed) — F21 (0.0.11, commit `994b951`; template 1.0.9, template audit F7 client half)
 - [x] a second finalize is refused by a real chain without effect — S5 (`e2e:localnet`, PASS 2026-10-10)
 
 ### pre-mainnet *(the consumer deploys on mainnet with a manual guard)*
@@ -1212,7 +1212,7 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
 - [x] policy discoverability through the coin registry — F4 (OQ2); proven on localnet
 - [x] fee recipient validated in the library — F7
 - [x] chain ids for mainnet drift-tested live (weekly) — A12
-- [x] no raw `btoa`/`atob`, every fetch with a timeout (none), no unjustified assertions at trust boundaries (the `!` lines carry reasons, A16, S6), caller-keyed lookups by own key — F19 (0.0.11, commit pending; `tests/package.test.ts`, `tests/deploy.test.ts`)
+- [x] no raw `btoa`/`atob`, every fetch with a timeout (none), no unjustified assertions at trust boundaries (the `!` lines carry reasons, A16, S6), caller-keyed lookups by own key — F19 (0.0.11, commit `994b951`; `tests/package.test.ts`, `tests/deploy.test.ts`)
 - [ ] external review — maintainer-only (`OPERATOR_TASKS.md`, external review before mainnet)
 
 ---
@@ -1413,7 +1413,7 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
     shows the `listMyTokens` limit error (F20; its own audit).
   - Pre-save consistency checklist re-run (below).
 
-- 2026-10-10 — Fix wave for 0.0.11 (local commit pending; not released) against template 1.0.9.
+- 2026-10-10 — Fix wave for 0.0.11 (local commit `994b951`; not released) against template 1.0.9.
   - **Done:** re-pinned `@meddleware/sui-token-template` to 1.0.9 and regenerated `src/template` (`check:template`
     passes; hashes unchanged, `files.ts` now also carries `Move.lock` and the new `publish.sh`); **F21 found and
     RESOLVED** (generated packages now carry `Move.lock` with the root pin renamed: the client half of template
