@@ -147,7 +147,7 @@ export async function patchTemplateModule(params: PatchParams): Promise<Uint8Arr
     [TEMPLATE_IDENTIFIERS.module]: params.moduleName,
     [TEMPLATE_IDENTIFIERS.struct]: params.structName,
   }
-  json.identifiers = json.identifiers.map((id) => rename[id] ?? id)
+  json.identifiers = json.identifiers.map((id) => (Object.hasOwn(rename, id) ? (rename[id] as string) : id))
   // A duplicate identifier fails bytecode verification on-chain (after gas is spent): refuse it here.
   if (new Set(json.identifiers).size !== json.identifiers.length) {
     throw new Error(`module or struct name collides with an identifier the template already uses`)

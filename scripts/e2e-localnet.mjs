@@ -9,7 +9,7 @@ import { SuiGrpcClient } from '@mysten/sui/grpc'
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 import { deriveObjectID } from '@mysten/sui/utils'
 
-const { DeployIncompleteError, deployToken, finalizeToken, toSuiTxResult } = await import('../src/deploy.ts')
+const { DeployIncompleteError, DeployUnconfirmedError, deployToken, finalizeToken, toSuiTxResult } = await import('../src/deploy.ts')
 const { listMyTokens } = await import('../src/tokens.ts')
 const { buildPackageFiles } = await import('../src/package.ts')
 
@@ -104,6 +104,7 @@ if (!result.metadataCapId || !result.treasuryCapId) fail('a mintable, updatable 
 const files = buildPackageFiles({ config: { ...config, structName: 'E2ETOKEN' }, result })
 if (files['Published.toml']) fail('a localnet result must not produce Published.toml')
 if (!files['deployments.md'].includes(result.packageId)) fail('deployments.md lacks the package id')
+if (!files['Move.lock']?.includes('[pinned.testnet.e2e_token]') || files['Move.lock'].includes('sui_token_template')) fail('Move.lock does not pin the generated package')
 
 // Fixed supply + frozen metadata: init applies both in the publish transaction, so no cap ever exists and
 // the registry records them (wallets and explorers read these).
@@ -183,4 +184,20 @@ if (finished.treasuryCapId) fail('fixed supply: a TreasuryCap exists after the r
 if (!/Fixed/.test(await registryState(finished.coinType))) fail('fixed supply: the registry does not record it after the retry')
 console.log(`recovered ${finished.coinType}: finalize refused once, finished with finalizeToken (supply minted at publish, fixed in the registry)`)
 
-console.log('e2e-localnet: OK — publish, finalize, fixed/frozen registry state, recovery, balance, listMyTokens and package generation')
+// A second finalize of the already finalized coin is refused by the chain (the pending Currency reference
+// is stale) and changes nothing: no second registration, no extra supply, the same registry state.
+const registryBefore = await registryState(finished.coinType)
+let secondRefusal = null
+try {
+  await finalizeToken({ pending, executor })
+} catch (e) {
+  secondRefusal = e
+}
+if (!secondRefusal) fail('a second finalize of an already finalized coin was not refused')
+if (secondRefusal instanceof DeployUnconfirmedError) fail(`the second finalize reached the chain and was confirmed: ${secondRefusal.message}`)
+const afterSecond = await client.getBalance({ owner: sender, coinType: finished.coinType })
+if (BigInt(afterSecond.balance.balance) !== 1_000n * 10n ** 6n) fail(`the refused finalize changed the balance to ${afterSecond.balance.balance}`)
+if ((await registryState(finished.coinType)) !== registryBefore) fail('the refused finalize changed the registry state')
+console.log(`second finalize refused without effect: ${String(secondRefusal.message).slice(0, 120)}`)
+
+console.log('e2e-localnet: OK — publish, finalize, fixed/frozen registry state, recovery, refused second finalize, balance, listMyTokens and package generation')

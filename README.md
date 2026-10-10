@@ -10,6 +10,8 @@ transactions, publish-result parsing, owned-token discovery, and the downloadabl
 npm install @meddleware/sui-token-client @mysten/sui
 ```
 
+`@mysten/sui` (`^2.33.2`) is a peer dependency: install it in the host so the bundle holds one copy, and the `Transaction` this package builds is signed by the same SDK.
+
 ## Entry points
 
 | Import | Contents |
@@ -74,7 +76,7 @@ try {
 }
 ```
 
-Until then the caps stay with the sender and the supply and metadata policies are not applied.
+Until then the currency is not registered and what `init` created (the initial coin and any caps) stays with the sender; the supply and metadata policies are already applied, because `init` applied them in the publish transaction.
 
 Every failure after the publish executed is a `PublishedError` (with `publishDigest`): never answer
 one with a fresh deploy, which would publish a second coin. `DeployUnconfirmedError` means the

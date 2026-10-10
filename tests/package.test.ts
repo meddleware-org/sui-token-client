@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { unzipSync, strFromU8 } from 'fflate'
 import { buildPackageFiles, generatePackageZip } from '../src/package.js'
 import { TEMPLATE_BUILD_INFO } from '../src/template/artifact.js'
+import { TEMPLATE_FILES } from '../src/template/files.js'
 import type { PublishResult, TokenConfig } from '../src/types.js'
 
 const baseConfig: TokenConfig = {
@@ -26,6 +27,7 @@ const baseConfig: TokenConfig = {
 
 const REQUIRED = [
   'Move.toml',
+  'Move.lock',
   'sources/mytoken.move',
   'scripts/publish.sh',
   '.gitignore',
@@ -259,5 +261,87 @@ describe('supply and metadata policy in the generated source', () => {
     expect(f['scripts/publish.sh']).toContain('METADATA_POLICY="frozen"')
     expect(f['CLAUDE.md']).toContain('`fixed`')
     expect(f['CLAUDE.md']).toMatch(/initial supply `7` whole tokens/)
+  })
+})
+
+describe('Move.lock carries the template framework pin (template F7)', () => {
+  const lock = (over: Partial<TokenConfig> = {}) => buildPackageFiles({ config: { ...baseConfig, ...over } })['Move.lock'] as string
+
+  it('renames only the root package pin', () => {
+    const out = lock()
+    expect(out).toContain('[pinned.testnet.my_token]')
+    expect(out).not.toContain('sui_token_template')
+    expect(out).toContain('[pinned.testnet.MoveStdlib]')
+    expect(out).toContain('[pinned.testnet.Sui]')
+  })
+
+  it('differs from the template lock by exactly that one line', () => {
+    const template = TEMPLATE_FILES['Move.lock'].split('\n')
+    const out = lock().split('\n')
+    expect(out).toHaveLength(template.length)
+    const changed = out.flatMap((l, i) => (l === template[i] ? [] : [[template[i], l]]))
+    expect(changed).toEqual([['[pinned.testnet.sui_token_template]', '[pinned.testnet.my_token]']])
+  })
+
+  it('keeps the framework revision of the template', () => {
+    const rev = /rev = "([0-9a-f]{40})"/.exec(TEMPLATE_FILES['Move.lock'])?.[1]
+    expect(rev).toBeDefined()
+    expect(lock()).toContain(`rev = "${rev}"`)
+  })
+
+  it('is part of the zip', () => {
+    const entries = unzipSync(generatePackageZip({ config: baseConfig }))
+    expect(strFromU8(entries['my_token/Move.lock']!)).toContain('[pinned.testnet.my_token]')
+  })
+})
+
+describe('literal-safe substitution in publish.sh and the README licence line (F18)', () => {
+  it('a module named like a template key is not rewritten in publish.sh', () => {
+    const f = buildPackageFiles({ config: { ...baseConfig, moduleName: 'xmodulenamex', structName: 'XMODULENAMEX' } })
+    const script = f['scripts/publish.sh'] as string
+    expect(script).toContain('COIN_TYPE_SUFFIX="::xmodulenamex::XMODULENAMEX"')
+    expect(script).toContain('XMODULENAMEX_TOKEN_PACKAGE_ID=')
+    expect(script).not.toMatch(/xmodulenamex_TOKEN/)
+  })
+
+  it('a package, module and struct that contain other keys come through verbatim', () => {
+    const f = buildPackageFiles({
+      config: { ...baseConfig, packageName: 'xpackagenamex', moduleName: 'xmetadatapolicyx', structName: 'XMETADATAPOLICYX' },
+    })
+    const script = f['scripts/publish.sh'] as string
+    expect(script).toContain('COIN_TYPE_SUFFIX="::xmetadatapolicyx::XMETADATAPOLICYX"')
+    expect(script).toContain('Publishing xpackagenamex package')
+    expect(script).toContain('METADATA_POLICY="updatable"')
+    expect(script).not.toContain('XPACKAGENAMEX')
+  })
+
+  it.each(['A$&B$\'C', 'A$`B', '$$ and $1 and $<x>'])('licence name %s is written literally in the README', (licenseName) => {
+    const readme = buildPackageFiles({ config: { ...baseConfig, licenseName } })['README.md'] as string
+    expect(readme).toContain(`${licenseName} — see the LICENSE file.`)
+    expect(readme).not.toContain('BSD Zero Clause')
+  })
+
+  it('renders hostile text fields literally in every generated file', () => {
+    const f = buildPackageFiles({ config: { ...baseConfig, description: "x$&y$'z", packageDescription: 'p$`q$$r' } })
+    expect(f['README.md']).toContain("x$&y$'z")
+    expect(f['sources/mytoken.move']).toContain('p$`q$$r')
+    expect(f['sources/mytoken.move']).toContain('b"x$&y$\'z"')
+  })
+})
+
+describe('Published.toml chain ids are looked up by own key (F19)', () => {
+  const result = (network: string): PublishResult => ({
+    network: network as PublishResult['network'], packageId: '0xPKG', coinType: '0xPKG::mytoken::MYTOKEN',
+    digest: '0xDIG', feeRecipient: '0xFEE', feeMist: '0',
+  })
+
+  it.each(['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf'])('%s writes no Published.toml', (network) => {
+    const f = buildPackageFiles({ config: baseConfig, result: result(network) })
+    expect(f['Published.toml']).toBeUndefined()
+  })
+
+  it('still records testnet and mainnet', () => {
+    expect(buildPackageFiles({ config: baseConfig, result: result('testnet') })['Published.toml']).toContain('chain-id = "4c78adac"')
+    expect(buildPackageFiles({ config: baseConfig, result: result('mainnet') })['Published.toml']).toContain('chain-id = "35834a8a"')
   })
 })

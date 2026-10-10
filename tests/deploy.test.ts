@@ -365,6 +365,13 @@ describe('toSuiTxResult (gRPC core execution → SuiTxResult)', () => {
     })
   })
 
+  it('reads object types by own key only (an object id like `constructor` gets no inherited value)', () => {
+    const t = tx(true)
+    t.effects.changedObjects = [written('constructor', 'None', '5')]
+    const res = toSuiTxResult({ $kind: 'Transaction', Transaction: t } as unknown as CoreExecutionResult)
+    expect(res.objectChanges).toEqual([{ type: 'mutated', objectId: 'constructor', objectType: undefined, version: '5', digest: 'D5' }])
+  })
+
   it('reports a failed transaction as a failure status (not a throw)', () => {
     const res = toSuiTxResult({ $kind: 'FailedTransaction', FailedTransaction: tx(false) } as unknown as CoreExecutionResult)
     expect(res.effects?.status).toEqual({ status: 'failure', error: 'MoveAbort(7)' })

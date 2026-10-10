@@ -19,6 +19,11 @@ deployer) keep only their UI, wallet wiring and form messages.
   against the package's `build-info.json`, a byte-exact decode/encode round trip, and that each
   identifier and default constant (text, decimals, `INITIAL_SUPPLY`, `FIXED_SUPPLY`, `FROZEN_METADATA`)
   exists once. CI runs `check:template`.
+- **`@mysten/sui` is a peer dependency** (`^2.33.2`, also a devDependency for tests): the host shares one
+  copy. `@mysten/move-bytecode-template` and `fflate` stay dependencies.
+- **Generated files are rendered literally, in one pass.** `replaceMany` (function replacers only; never a
+  replacement string, which would expand `$&`); `Move.lock` is the template's with only the root package
+  line renamed; lookups keyed by a caller or node value use `Object.hasOwn`.
 - **Template identifiers.** `TEMPLATE_IMPORTED_IDENTIFIERS` (rules.ts) must equal the shipped
   module's identifiers besides its own (`check:template` fails otherwise); module names avoid them.
 - **One rule set.** `assertTokenConfig` (rules.ts) is called by the patcher, `deployToken` and the
@@ -53,7 +58,7 @@ deployer) keep only their UI, wallet wiring and form messages.
 
 ## Testing
 
-`npm test` (vitest, 126 tests): rules, type matching (look-alike packages, nested generics, long-form
+`npm test` (vitest, 148 tests): rules, type matching (look-alike packages, nested generics, long-form
 addresses), builders (exact PTB commands), result parsing, deploy flow with a mock executor, wasm
 initialisation, patching, Walrus-URL icons, package generation, paged token listing.
 `tests/abi-table.test.ts` fails if an exported builder is missing from the ABI table
@@ -63,5 +68,5 @@ parameter counts (trailing `TxContext` excluded), and the chain ids written into
 must match each network.
 `npm run e2e:localnet` deploys real coins on a local network and checks the balance, the listing and the
 generated package; a fixed-supply, frozen-metadata coin (no caps exist, the registry's `Currency` records
-`Fixed` and a deleted metadata cap); a coin whose constants are equal (merged pool); and recovery through
-`finalizeToken`.
+`Fixed` and a deleted metadata cap); a coin whose constants are equal (merged pool); recovery through
+`finalizeToken`; and a second finalize that the chain refuses without effect.

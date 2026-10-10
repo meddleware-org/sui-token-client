@@ -5,11 +5,12 @@
 | Field | Value |
 | --- | --- |
 | npm name | `@meddleware/sui-token-client` |
-| Version | `0.0.1` |
+| Version | `0.0.11` |
 | Licence | 0BSD |
 | Type | TypeScript source package (declaration-only build) |
-| Runtime targets | Node.js ≥ 22, browsers (via Vite) |
-| Runtime dependencies | `@mysten/sui` `^2.33.1`, `@mysten/move-bytecode-template` `~0.4.1`, `fflate` `^0.8.3` |
+| Runtime targets | Node.js 24 LTS (CI), browsers (via Vite) |
+| Runtime dependencies | `@mysten/move-bytecode-template` `~0.4.1`, `fflate` `^0.8.3` |
+| Peer dependency | `@mysten/sui` `^2.33.2` (the host's copy) |
 
 ## Layout
 

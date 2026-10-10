@@ -159,6 +159,15 @@ describe('buildFinalizeTransaction', () => {
     expect(calls.every((c) => c.MoveCall.function !== 'finalize_registration')).toBe(true)
   })
 
+  it('treats the sender and a recipient in another case or zero padding as the same account', () => {
+    const padded = '0x' + 'AB'.repeat(32)
+    const short = '0x' + '0'.repeat(62) + '0a'
+    expect(finalizeHasWork({ config: baseConfig({ recipient: padded }), sender: padded.toLowerCase() })).toBe(false)
+    expect(finalizeHasWork({ config: baseConfig({ recipient: '0xa' }), sender: short })).toBe(false)
+    const tx = buildFinalizeTransaction({ ...finalizeArgs(baseConfig({ recipient: '0xa', initialSupply: 5n })), sender: short })
+    expect(byKind(tx, 'TransferObjects')).toHaveLength(0)
+  })
+
   it('never mints or freezes: init applied the policies in the publish transaction', () => {
     for (const config of [
       baseConfig({ recipient, initialSupply: 1000n }),

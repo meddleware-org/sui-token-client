@@ -12,7 +12,7 @@
 //      itself, in the publish transaction, so they are recorded in the coin registry.
 
 import { Transaction } from '@mysten/sui/transactions'
-import { toBase64 } from '@mysten/sui/utils'
+import { normalizeSuiAddress, toBase64 } from '@mysten/sui/utils'
 import type { TokenConfig } from './types.js'
 
 const SUI_FRAMEWORK = '0x2'
@@ -88,6 +88,9 @@ export interface BuildFinalizeArgs {
   gasBudget: bigint
 }
 
+/** Two addresses are the same account whatever their case or zero padding. */
+const sameAddress = (a: string, b: string) => normalizeSuiAddress(a) === normalizeSuiAddress(b)
+
 /**
  * What a finalize transaction would do: register the currency (when there is a pending reference) and move
  * whatever `init` left with the sender to the recipient. False when there is nothing to do (no reference and
@@ -95,7 +98,7 @@ export interface BuildFinalizeArgs {
  */
 export function finalizeHasWork(args: Pick<BuildFinalizeArgs, 'config' | 'currencyRef' | 'sender'>): boolean {
   const recipient = args.config.recipient || args.sender
-  return Boolean(args.currencyRef) || recipient.toLowerCase() !== args.sender.toLowerCase()
+  return Boolean(args.currencyRef) || !sameAddress(recipient, args.sender)
 }
 
 /**
@@ -122,7 +125,7 @@ export function buildFinalizeTransaction(args: BuildFinalizeArgs): Transaction {
   }
 
   const held = [args.initialCoinId, args.treasuryCapId, args.metadataCapId].filter((id): id is string => Boolean(id))
-  if (recipient.toLowerCase() !== args.sender.toLowerCase() && held.length > 0) {
+  if (!sameAddress(recipient, args.sender) && held.length > 0) {
     tx.transferObjects(held.map((id) => tx.object(id)), recipient)
   }
 

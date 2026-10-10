@@ -137,6 +137,7 @@ export const TEMPLATE_DEFAULTS = Object.freeze({
 
 const FILES = {
   'Move.toml': 'Move.toml',
+  'Move.lock': 'Move.lock',
   'source.move': 'sources/sui_token_template.move',
   'scripts/publish.sh': 'templates/publish.sh',
   '.gitignore': 'templates/gitignore',

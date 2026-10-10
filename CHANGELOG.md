@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.11] - 2026-10-10
+
+### Added
+
+- `buildPackageFiles` and `generatePackageZip` write `Move.lock`: the template's framework pin (template 1.0.9) with the root package line renamed, as `03_create_token.sh` does, so a generated package builds against the framework revision the template was tested with
+- `e2e:localnet` shows that a second `finalizeToken` of an already finalized coin is refused by the chain without effect, and that the generated `Move.lock` pins the new package
+
+### Changed
+
+- **Breaking (pre-v0.2):** `@mysten/sui` (`^2.33.2`) is a peer dependency, no longer a dependency, so a host bundle holds one copy; it stays a devDependency for tests. CI runs `npm ls --all`
+- Template regenerated from @meddleware/sui-token-template 1.0.9 (`Move.lock` shipped; `publish.sh` uses an `object_state` helper)
+- Finalize compares the sender and the recipient with `normalizeSuiAddress` (case and zero padding), not `toLowerCase`
+
+### Fixed
+
+- The generated `scripts/publish.sh` is rendered in one pass: a module named like a template key (`xmodulenamex`) no longer breaks the coin-type suffix and variable names
+- The README licence line is written literally: `$&`, `$'` and `` $` `` in the licence name are no longer expanded
+- `Published.toml` chain ids, the patcher's identifier rename and the object-type lookup in `toSuiTxResult` use own keys only (`Object.hasOwn`): a network named `constructor` no longer writes a garbage chain id
+
+### Security
+
+- `SECURITY.md`, the README and `AGENTS.md` describe the policies as `init` applies them (the registry records a fixed supply and a deleted MetadataCap; finalize mints nothing and a repeat is refused)
+
 ## [0.0.10] - 2026-10-09
 
 ### Changed

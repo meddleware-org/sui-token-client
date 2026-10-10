@@ -44,7 +44,7 @@ export function toSuiTxResult(res: CoreExecutionResult): SuiTxResult {
       objectChanges.push({
         type: c.idOperation === 'Created' ? 'created' : 'mutated',
         objectId: c.objectId,
-        objectType: types[c.objectId],
+        objectType: Object.hasOwn(types, c.objectId) ? types[c.objectId] : undefined,
         version: c.outputVersion ?? undefined,
         digest: c.outputDigest ?? undefined,
       })

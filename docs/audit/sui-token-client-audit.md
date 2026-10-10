@@ -1,6 +1,6 @@
 # Security Audit — `sui-token-client`
 
-**Classification:** Internal security review (re-verified 2026-10-09 — awaiting external review)
+**Classification:** Internal security review (re-verified 2026-10-10 — awaiting external review)
 **Project:** sui-token-client (`@meddleware/sui-token-client`) — the client for
 `@meddleware/sui-token-template`. It covers:
 
@@ -31,12 +31,14 @@ and Rust lenses, SITE, PLATFORM.
 **Deployment status:**
 
 - npm `@meddleware/sui-token-client` **0.0.10** (`latest`), published from tag `v0.0.10` = `e70a5ab`,
-  with an SLSA v1 provenance attestation (checked 2026-10-09). `main` is one commit ahead (`fb7301b`, a
-  Dependabot lockfile-only bump, not released). Baseline of this audit: 0.0.5 at `6f09bb2`, 2026-10-02.
+  with an SLSA v1 provenance attestation (checked 2026-10-09). `main` is ahead of it: `fb7301b` (a
+  Dependabot lockfile-only bump) and the 0.0.11 fix wave of 2026-10-10 (commit pending; not yet released).
+  Baseline of this audit: 0.0.5 at `6f09bb2`, 2026-10-02.
 - Releases since the baseline: 0.0.6 `6d3b7c2`, 0.0.7 `bd58328`, 0.0.8 `75dd34a` (template 1.0.7
   regeneration), 0.0.9 `677330f` and 0.0.10 `e70a5ab` (both 2026-10-09; template 1.0.8).
-- Pins `@meddleware/sui-token-template` **1.0.8** exactly, so every coin it publishes applies its supply
-  and metadata policies in its own `init` (closes F4).
+- Pins `@meddleware/sui-token-template` **1.0.8** exactly in 0.0.10, so every coin it publishes applies its
+  supply and metadata policies in its own `init` (closes F4). The 0.0.11 work pins **1.0.9** (adds the shipped
+  `Move.lock`; `publish.sh` uses an `object_state` helper).
 - Consumed by token-deployer-ui 0.0.35 (`^0.0.10`: `deployToken`, `finalizeToken`, `toSuiTxResult`,
   `listMyTokens`, `generatePackageZip`, `configureTemplateWasm`).
 - The live path is the token deployer on testnet and mainnet: user wallets publish coins, and a fee
@@ -44,7 +46,7 @@ and Rust lenses, SITE, PLATFORM.
 - `npm run e2e:localnet` passed on 2026-10-09 (including a fixed-supply coin with frozen metadata, an
   equal-constants publish, recovery and the capability-less listing).
 
-**Review date:** 2026-10-03, re-verified 2026-10-09
+**Review date:** 2026-10-03, re-verified 2026-10-09 and 2026-10-10
 **Reviewer:** Internal review
 **Severity ceiling:** High.
 
@@ -54,9 +56,10 @@ and Rust lenses, SITE, PLATFORM.
 - A defect can mint wrongly, leave a coin with the wrong permanent identity, or misreport who holds
   authority.
 - Realised ceiling at the 2026-10-03 baseline: **Low** (F1, permanent but needing an unusual input).
-  Realised ceiling at 2026-10-09: **Info** (no open finding above Info: F11, F17–F20).
+  Realised ceiling at 2026-10-09: **Info** (no open finding above Info: F11, F17–F20). At 2026-10-10 the
+  only open finding is F20 (Info, ACCEPTED-RISK).
 
-**Status:** re-verified 2026-10-09 (first-pass baseline 2026-10-03).
+**Status:** re-verified 2026-10-10, 0.0.11 work (first-pass baseline 2026-10-03).
 
 - The predecessor in-app code was reviewed in `token-deployer/docs/audits/token-deployer-sui-audit.md`
   (2026-07-30).
@@ -76,18 +79,18 @@ condition), built by `prepublishOnly`. Entry points:
 | `./package` | `src/package.ts` |
 
 **Runtime targets:** browsers (Vite, wasm configured with `configureTemplateWasm`) and Node.
-**Peer dependencies:** none (see F17: `@mysten/sui` is a runtime dependency here, unlike the sibling SDKs).
+**Peer dependencies:** `@mysten/sui` `^2.33.2` (F17, 0.0.11; also a devDependency for tests).
 
 **Dependencies:**
 
 | Package | Range | Installed |
 | --- | --- | --- |
-| `@mysten/sui` | `^2.33.1` | 2.33.2 |
+| `@mysten/sui` (peer; dev for tests) | `^2.33.2` | 2.33.2 |
 | `@mysten/move-bytecode-template` | `~0.4.1` | 0.4.1 (latest) |
 | `fflate` | `^0.8.3` | 0.8.3 |
 
-**Template pin:** devDependency `@meddleware/sui-token-template` **1.0.8**, exact, with provenance
-attested (1.0.6 at the baseline). The generated artefact records:
+**Template pin:** devDependency `@meddleware/sui-token-template` **1.0.9**, exact, with provenance
+attested (1.0.6 at the baseline, 1.0.8 in 0.0.10). The generated artefact records:
 
 | Field | Value |
 | --- | --- |
@@ -122,7 +125,7 @@ repo.
 
 ## Executive summary
 
-`@meddleware/sui-token-client` is about 1,670 lines across 11 hand-written modules (0.0.10). The
+`@meddleware/sui-token-client` is about 1,670 lines across 11 hand-written modules (0.0.11). The
 generated artefact and template files (`src/template/artifact.ts`, `files.ts`) are on top of that.
 
 **What holds (verified):**
@@ -150,14 +153,14 @@ generated artefact and template files (`src/template/artifact.ts`, `files.ts`) a
 - **Tooling.** Declarations ship in `dist`; there is an ABI table plus a live drift test (framework
   calls and chain IDs).
 
-**Measured (2026-10-09, 0.0.10):**
+**Measured (2026-10-10, 0.0.11):**
 
-- 126/126 unit tests (10 files); coverage 97.88% statements, 90.71% branches, 100% functions, 99.15% lines;
-- tsc, eslint, `npm audit --audit-level=high` (0) and `check:template` (`@meddleware/sui-token-template@1.0.8`) clean;
-- the live read-only suite passes (6/6, testnet and mainnet full nodes); `e2e:localnet` PASS (2026-10-09);
+- 148/148 unit tests (11 files); coverage 97.92% statements, 90.97% branches, 100% functions, 99.17% lines;
+- tsc, eslint, `npm audit --audit-level=high` (0), `npm ls --all` and `check:template` (`@meddleware/sui-token-template@1.0.9`) clean;
+- the live read-only suite passed 6/6 on 2026-10-09 (weekly in CI); `e2e:localnet` PASS (2026-10-10, sui 1.81.0, including the refused second finalize);
 - the build emits declarations; pack is 30 files.
 
-**Findings, current state (2026-10-09):**
+**Findings, current state (2026-10-10):**
 
 1. **The four findings that mattered are RESOLVED.**
    - **F1** (placeholder-valued inputs in the wrong slot): the patcher resolves every slot from the
@@ -173,19 +176,20 @@ generated artefact and template files (`src/template/artifact.ts`, `files.ts`) a
    and tarball are checked, and a weekly workflow runs the live read-only suite; the localnet e2e is
    still run by hand before a release.
 3. **New since the baseline:** **F16** (RESOLVED): the patcher merges equal constant-pool entries,
-   which the bytecode verifier rejects. Open, all Info and not mainnet-gated: **F11** (the docs still
-   describe the freeze design in `SECURITY.md`, one README sentence and `AGENTS.md`), **F17**
-   (`@mysten/sui` is a dependency, not a peer: TS-M9), **F18** (the generated `publish.sh` and the README
-   licence line still substitute naively), **F19** (`CHAIN_IDS` is indexed with a caller-supplied
-   network) and **F20** (`listMyTokens` fails closed past 200 foreign coin packages: ACCEPTED-RISK).
+   which the bytecode verifier rejects. The Info items found at the 2026-10-09 re-verification are
+   RESOLVED in 0.0.11: **F11** (docs described the freeze design), **F17** (`@mysten/sui` is now a peer:
+   TS-M9), **F18** (the generated `publish.sh` and the README licence line substituted naively) and **F19**
+   (`CHAIN_IDS` was indexed with a caller-supplied network). One remains, Info and not mainnet-gated: **F20**
+   (`listMyTokens` fails closed past 200 foreign coin packages: ACCEPTED-RISK; OQ4).
 
 **Posture:**
 
 - The money and identity paths are carefully engineered, and the extraction from the app tightened
   them. Every baseline finding has a fix with a test, and the two decisions that were open (OQ2, the
   registry; OQ1, the UpgradeCap) were taken and implemented.
-- The remaining items are documentation drift (F11), one packaging rule (F17) and three small
-  hygiene items in generated files and listings. None touches funds or the permanent on-chain values.
+- The remaining item is F20, an availability limit on the listing that fails closed. The 2026-10-09
+  documentation drift (F11), the packaging rule (F17) and the three hygiene items in generated files (F18,
+  F19, `Move.lock`) are fixed in 0.0.11. None touched funds or the permanent on-chain values.
 - Evidence for the permanent values is layered: the rule set, the pristine-pool patcher with its decoded
   post-condition, the constant-pool dedupe, the result-versus-policy check after the publish, and a
   localnet run that reads the registry's recorded state.
@@ -211,7 +215,7 @@ generated artefact and template files (`src/template/artifact.ts`, `files.ts`) a
 | --- | --- | --- | --- | --- | --- |
 | Move stdlib / Sui framework | `0x1` / `0x2` | constants (`transactions.ts:16-17`) | publish dependencies; call targets | system packages; framework upgrades keep the addresses | n/a — drift test checks signatures live |
 | Coin registry | `0xc` | literal | `finalize_registration` argument | system object | n/a |
-| Pending `Currency<T>` | from publish effects (id, version, digest) | `extractPublishResult` | a `Receiving` reference in finalize | stale version ⇒ the finalize is rejected without effect (a repeat is safe — F3) | closed |
+| Pending `Currency<T>` | from publish effects (id, version, digest) | `extractPublishResult` | a `Receiving` reference in finalize | stale version ⇒ the finalize is rejected without effect (a repeat is safe — F3; observed on localnet, S5) | closed |
 | `TreasuryCap<T>` / `MetadataCap<T>` / `Coin<T>` / `UpgradeCap` | from effects, exact types | `extractPublishResult` | transfer to the recipient (no mint, no freeze) | — | closed (exact type; coin from the published package) |
 | Fee recipient | caller | app config | `transferObjects(fee)` | a zero or short address is refused in the library (F7); a wrong but valid address is the caller's responsibility | closed for malformed; open for wrong-but-valid |
 
@@ -223,13 +227,13 @@ generated artefact and template files (`src/template/artifact.ts`, `files.ts`) a
 | Registry (npm) / CI runner / maintainer | the tarball for a version; the build; the publish | lockfile integrity; OIDC trusted publishing with provenance (checked on 0.0.10); SHA-pinned Actions; `npm@11.20.0` pinned for the publish; tag must equal the version |
 | Template package | the module and template text files | F14 / `check:template` |
 | Untrusted inputs | user config; executor results | `assertTokenConfig`; strict result parsing |
-| Embedding host | wasm source URL; the `@mysten/sui` copies in the bundle | `configureTemplateWasm`; a failed init is rethrown and retried; one `@mysten/sui` copy today by range overlap, not by a peer declaration (F17) |
+| Embedding host | wasm source URL; the `@mysten/sui` copies in the bundle | `configureTemplateWasm`; a failed init is rethrown and retried; one `@mysten/sui` copy, enforced by the peer declaration (F17, 0.0.11) |
 
 ### Operations (OPS lens, scoped)
 
 | Script | Signs? | Network guard | Irreversible? | Key | Writes IDs |
 | --- | --- | --- | --- | --- | --- |
-| `scripts/e2e-localnet.mjs` | yes (publish, finalize, a fixed-supply/frozen-metadata coin, an equal-constants publish, a refused-finalize recovery) | defaults to `http://127.0.0.1:9000` / `:9123`. Hard-fails when the chain identifier is testnet's or mainnet's unless `E2E_ALLOW_PUBLIC=1` (F10, 0.0.7). | localnet-ephemeral | ephemeral `Ed25519Keypair`, faucet-funded | none |
+| `scripts/e2e-localnet.mjs` | yes (publish, finalize, a fixed-supply/frozen-metadata coin, an equal-constants publish, a refused-finalize recovery, a refused second finalize) | defaults to `http://127.0.0.1:9000` / `:9123`. Hard-fails when the chain identifier is testnet's or mainnet's unless `E2E_ALLOW_PUBLIC=1` (F10, 0.0.7). | localnet-ephemeral | ephemeral `Ed25519Keypair`, faucet-funded | none |
 
 ---
 
@@ -239,12 +243,12 @@ Critical / High / Medium / Low / Info / Positive.
 
 ## Scope
 
-**In scope (HEAD `fb7301b` on `main`, 2026-10-09; release tag `v0.0.10` = `e70a5ab`; baseline `6f09bb2` = tag `v0.0.5`, 2026-10-02):**
+**In scope (HEAD `fb7301b` on `main` plus the 0.0.11 working tree, 2026-10-10; release tag `v0.0.10` = `e70a5ab`; baseline `6f09bb2` = tag `v0.0.5`, 2026-10-02):**
 
 - `src/{index,types,rules,typeNames,transactions,results,deploy,tokens,package}.ts`
 - `src/template/{index,patch,artifact,files}.ts`
 - `scripts/{gen-template,e2e-localnet,ts-resolve}.mjs`
-- `tests/**` (10 unit files, the ABI table, the integration drift test)
+- `tests/**` (11 unit files, the ABI table, the integration drift test)
 - `package.json`, the lockfile, `tsconfig*.json`, the vitest and eslint configs
 - `README.md`, `SECURITY.md`, `CLAUDE.md`, `AGENTS.md`, `CHANGELOG.md`
 - `.github/workflows/{node-ci,npm-publish,live}.yml`, `.github/dependabot.yml`
@@ -253,7 +257,7 @@ Critical / High / Medium / Low / Info / Positive.
 
 - the pinned Sui framework source at `83f11dc8…` (`coin_registry.move`: `make_supply_fixed`,
   `delete_metadata_cap`, `SupplyState`, `MetadataCapState`), from the local Move git cache;
-- `sui-token-template` 1.0.8 (`5451c0e`, policies applied in `init`) and its audit;
+- `sui-token-template` 1.0.9 (policies applied in `init` since 1.0.8 `5451c0e`; `Move.lock` shipped since 1.0.9) and its audit;
 - `token-deployer/docs/audits/token-deployer-sui-audit.md` (the predecessor);
 - token-deployer-ui CLAUDE.md and `package.json` (the consumer's wiring, its zero-treasury guard, the
   post-publish error routing, the `^0.0.10` pin).
@@ -261,22 +265,22 @@ Critical / High / Medium / Low / Info / Positive.
 **Out of scope:** the Move template (its own audit); token-deployer-ui (its own audit); the
 `@mysten/*` internals.
 
-**Environment / commands (2026-10-09, Node 24.13.0; the baseline ran on Node 22.22.2):**
+**Environment / commands (2026-10-10, 0.0.11 working tree; the 2026-10-09 figures were Node 24.13.0, the baseline ran on Node 22.22.2):**
 
 | Command | Result |
 | --- | --- |
 | `npm ci` | clean |
-| `npx vitest run` | **126 passed** (10 files) |
-| `npx vitest run --coverage` (coverage plugin installed `--no-save`, then removed) | 97.88% statements / 90.71% branches / 100% functions / 99.15% lines. Branch gaps: `deploy.ts` (66.66%: the `cause instanceof Error` fallbacks and optional `onStep` calls), `results.ts` (85.71%), `patch.ts` (88%) |
+| `npx vitest run` | **148 passed** (11 files) |
+| `npx vitest run --coverage` (coverage plugin installed `--no-save`, then removed) | 97.92% statements / 90.97% branches / 100% functions / 99.17% lines. Branch gaps: `deploy.ts` (66.66%: the `cause instanceof Error` fallbacks and optional `onStep` calls), `results.ts` (86.11%), `patch.ts` (88%) |
 | `npx tsc --noEmit` / `npx eslint .` | clean / clean |
 | `npm audit --audit-level=high` | 0 vulnerabilities |
-| `npm run check:template` | `src/template matches @meddleware/sui-token-template@1.0.8` |
+| `npm run check:template` | `src/template matches @meddleware/sui-token-template@1.0.9` |
 | `npm run test:integration` (`GRPC_TESTNET=1`; reads public testnet and mainnet full nodes) | **6 passed** (the chain id and the `make_immutable` / `finalize_registration` signatures, per network) |
-| `npm pack --dry-run` | 30 files, 43.9 kB (`src`, `dist`, `CHANGELOG.md`, `README.md`, `LICENSE`, `package.json`); no tests or fixtures |
+| `npm pack --dry-run` | 30 files, 45.7 kB (`src`, `dist`, `CHANGELOG.md`, `README.md`, `LICENSE`, `package.json`); no tests or fixtures |
 | `npm ls` | one `@mysten/sui` (2.33.2); `typescript` 6.0.3 |
 | `npm view @meddleware/sui-token-client@0.0.10 dist.attestations` | SLSA v1 provenance present |
 | Scratch probes (deleted afterwards) | `buildPackageFiles` with a module named `xmodulenamex` leaves a wrong struct name and env-variable names in the generated `scripts/publish.sh`, and a `licenseName` of `A$&B$'C` is pattern-expanded in the README (F18); a `network` of `constructor` writes `chain-id = "function Object() { [native code] }"` into `Published.toml` (F19) |
-| `npm run e2e:localnet` | **not re-run here**; the maintainer's run of 2026-10-09 passed (fixed-supply + frozen-metadata coin: no caps, registry records `Fixed` and a deleted MetadataCap; equal-constants publish; recovery; listing). The baseline probes of F1 and F8 were repeated as unit tests (`tests/template.test.ts`, `tests/package.test.ts`) |
+| `npm run e2e:localnet` | **PASS 2026-10-10** against a local `sui start --with-faucet --force-regenesis` (sui 1.81.0): fixed-supply + frozen-metadata coin (no caps, registry records `Fixed` and a deleted MetadataCap); equal-constants publish; recovery; a second finalize refused by the chain without effect; listing; the generated `Move.lock`. The baseline probes of F1 and F8 were repeated as unit tests (`tests/template.test.ts`, `tests/package.test.ts`) |
 
 The clone was left clean (`coverage/` removed; the lockfile is byte-identical to `HEAD`).
 
@@ -347,8 +351,8 @@ The clone was left clean (`coverage/` removed; the lockfile is byte-identical to
 - Residual, stated plainly: the post-condition checks that each value is present in the pool, not which
   `LdConst` loads it (after the merge of F16 two constants can share one entry by design). The load sites
   are pinned by the `template.test.ts` merge tests ("every constant still loads its own value") and the
-  localnet publish. The generated `publish.sh` and the README licence line were not covered by this fix:
-  F18.
+  localnet publish. The generated `publish.sh` and the README licence line were not covered by this fix
+  (F18, resolved in 0.0.11).
 
 **Baseline recommendation (2026-10-03, implemented as listed):**
 
@@ -441,7 +445,7 @@ burning.
   "never mints or freezes: init applied the policies in the publish transaction" and "reports whether there
   is anything to run". The localnet run recovers a refused finalize with `finalizeToken`.
 - Not exercised against a chain: the second finalize that is rejected (chain semantics, not modelled by a
-  mock executor). See S5.
+  mock executor). Run against a localnet on 2026-10-10 (S5): the chain refuses it without effect.
 
 **Baseline recommendation (2026-10-03, superseded by removing the minting):**
 
@@ -497,7 +501,7 @@ effectively fixed, but cannot be proven through the registry.
   "assertResultMatchesPolicy" and the `extractPublishResult` cases without caps, `tests/deploy.test.ts`
   "deploys a fixed supply with frozen metadata".
 - The generated README states the policies as the registry records them (`package.ts`, `policyNote`;
-  `tests/package.test.ts`). `SECURITY.md` still describes the old freeze semantics: F11.
+  `tests/package.test.ts`). `SECURITY.md` described the old freeze semantics until 0.0.11 (F11).
 
 **Baseline recommendation (2026-10-03, second option implemented):**
 
@@ -558,7 +562,7 @@ checked).
 **Remediation / evidence (2026-10-09):** `assertTokenConfig` bounds `licenseName` (64) and checks it against
 `SAFE_TEXT` (`rules.ts:166-171`); `assertLicenseText` bounds the text (100,000 characters) and refuses a NUL
 byte (`rules.ts:180-183`), and `buildPackageFiles` calls it (`package.ts:268`). Test: `tests/rules.test.ts`
-"licence fields". One related defect remains in the README licence line: F18.
+"licence fields". One related defect in the README licence line was fixed in 0.0.11 (F18).
 
 **Baseline recommendation (2026-10-03, implemented):** bound and `SAFE_TEXT`-check `licenseName`; bound
 `licenseText`.
@@ -593,7 +597,7 @@ the optional second suggestion is S4 (MAY), not a defect.
 
 ### F8 — Placeholder and identifier collisions beyond F1
 
-**Severity:** Info   **Disposition:** RESOLVED (0.0.6, `6d3b7c2`, with F1; one residual in generated scripts: F18)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.6, `6d3b7c2`, with F1; one residual in generated scripts, resolved in 0.0.11: F18)
 
 **Where:** `src/package.ts:25-40` (`applyDocPlaceholders`: a sequential `replaceAll` over a map
 whose values are user text); `:83-84` (`renderSource` inserts `packageDescription` before
@@ -620,7 +624,7 @@ This only affects the user's own generated docs and comments, not on-chain value
 never rescanned (`package.ts:29-32, 35-51, 89-102`). Test: `tests/package.test.ts` "a value containing
 another template key is not rewritten" (a description containing `XSYMBOLX`, a package description
 containing `XMODULENAMEX` and `SUI_TOKEN_TEMPLATE`). `renderPublishScript` and the README licence line were
-not moved to the same pass: F18.
+not moved to the same pass until 0.0.11 (F18).
 
 **Baseline recommendation (2026-10-03, first option implemented):** substitute in one pass, with a single
 regex alternation over the template so inserted text is never rescanned. Alternatively, reject `X[A-Z]+X`
@@ -689,7 +693,16 @@ the ephemeral key is funded. No test covers the guard itself (it is a script, ex
 
 ### F11 — Documentation drift
 
-**Severity:** Info   **Disposition:** DEFERRED (docs-only fix for the next patch release, 0.0.11; maintainer)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit pending)
+
+**Resolution (2026-10-10):** `SECURITY.md` "What the policies mean" is rewritten to the `init`-applied design (the
+registry records a fixed supply and a deleted MetadataCap; finalize mints nothing; a repeat is refused by the
+chain; no `client` option) and no longer splits the numbered invariants (now 1-6; the literal one-pass rendering
+and the `Move.lock` rule are stated). The README sentence now says only the registration and the transfer to the
+recipient wait for the finalize. `AGENTS.md` shows version `0.0.11`, Node 24 LTS (CI) and `@mysten/sui` as a
+peer. `CLAUDE.md` is at 144 tests and names the peer, literal-rendering and `Object.hasOwn` rules. Evidence: the
+five files in the 0.0.11 diff; the e2e step that pins the second-finalize behaviour the text now describes
+(S5).
 
 **Baseline text (2026-10-03):**
 
@@ -726,7 +739,7 @@ the ephemeral key is funded. No test covers the guard itself (it is a script, ex
 - Impact: a reader of `SECURITY.md` believes the package gives a weaker guarantee than it does; no code or
   funds are affected. Under the base template a `SECURITY.md` that contradicts the audit is itself a finding.
 
-**Baseline recommendation (2026-10-03):** correct each. Remaining fix: rewrite the "What the policies mean"
+**Baseline recommendation (2026-10-03, done in 0.0.11):** correct each. Remaining fix: rewrite the "What the policies mean"
 sub-section from the README's wording, renumber the invariants, and correct the README sentence and the
 `AGENTS.md` rows. Single solution, no decision needed; to be shipped with the next patch.
 
@@ -753,7 +766,7 @@ These are the post-publish recovery paths users depend on.
 - Finalize with `currencyRef` absent: "finalizeToken has nothing to run when there is no pending currency and
   the recipient is the sender", and "omits finalize_registration when currencyRef is absent".
 - The "executor throws after success" test is moot: finalize mints nothing (F3), and the stale-reference
-  rejection is chain behaviour (S5).
+  rejection is chain behaviour (S5, observed on localnet 2026-10-10).
 - Current figures: `deploy.ts` branches 66.66%, `results.ts` 85.71%. The deploy.ts gaps are the
   `cause instanceof Error ? … : String(cause)` fallbacks of the two error constructors and optional
   `onStep` calls, not recovery logic.
@@ -790,7 +803,7 @@ success".
     in the pool;
   - `TEMPLATE_IMPORTED_IDENTIFIERS` equals the module's actual identifiers;
   - `--check` in CI.
-- The template devDependency is pinned exactly (1.0.8) and carries provenance; `check:template` matched at
+- The template devDependency is pinned exactly (1.0.9 at 0.0.11) and carries provenance; `check:template` matched at
   review.
 
 ### F14 — Positive: exact-type result parsing and post-publish error typing (predecessor findings resolved)
@@ -860,7 +873,7 @@ publish in `e2e:localnet` is verified on-chain (2026-10-09).
 
 ### F17 — `@mysten/sui` is a runtime dependency, not a peer dependency
 
-**Severity:** Info   **Disposition:** DEFERRED (next patch release, 0.0.11; maintainer)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit pending; decision D34)
 **Where:** `package.json` `dependencies` (`@mysten/sui` `^2.33.1`); `README.md` install line
 (`npm install @meddleware/sui-token-client @mysten/sui`).
 
@@ -878,14 +891,18 @@ publish in `e2e:localnet` is verified on-chain (2026-10-09).
 **Impact:** a possible duplicate SDK copy in an embedding host (type or `instanceof` mismatch at signing).
 No data or funds are affected, and the consumer is aligned today.
 
-**Remediation / evidence:** move `@mysten/sui` to `peerDependencies` (`^2.33.2`) with a matching
+**Resolution (2026-10-10):** `@mysten/sui` is in `peerDependencies` (`^2.33.2`) and `devDependencies` (`^2.33.2`, for
+the tests); the README install line explains the peer; `node-ci.yml` runs `npm ls --all` after `npm ci` (exit 0
+locally). Evidence: `package.json`, `package-lock.json`, `.github/workflows/node-ci.yml`, `npm ls --all`.
+
+**Remediation (baseline):** move `@mysten/sui` to `peerDependencies` (`^2.33.2`) with a matching
 devDependency, as access-gate-client did (its F9, 0.0.6), and add `npm ls --all` to CI. `@mysten/move-bytecode-template`
 (`~0.4.1`, the wasm) and `fflate` stay dependencies: the host does not share them. Pre-v0.2 policy: a
 patch bump, no shim.
 
 ### F18 — The generated `publish.sh` and the README licence line still substitute naively
 
-**Severity:** Info   **Disposition:** DEFERRED (next patch release, 0.0.11; maintainer)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit pending)
 **Where:** `src/package.ts:105-111` (`renderPublishScript`: four sequential `replaceAll` calls);
 `:146-153` (`renderReadmeLicense`: `String.replace` with the licence name as the replacement string).
 
@@ -903,12 +920,18 @@ patch bump, no shim.
 name, and a garbled README line for a licence name containing `$&` or `$'`. Neither reaches the chain
 and neither is reachable by a third party. The Move source and bytecode are not affected.
 
-**Remediation / evidence:** render the script with `replaceMany` (one pass) and give `String.replace` a
+**Resolution (2026-10-10):** `renderPublishScript` renders with `replaceMany` (one pass) and `renderReadmeLicense`
+gives `String.replace` a function replacer. Evidence: `tests/package.test.ts` ("literal-safe substitution in
+publish.sh and the README licence line": module `xmodulenamex` with struct `XMODULENAMEX`, a package and module
+named like other keys, licence names `A$&B$'C`, `` A$`B `` and `$$ and $1 and $<x>`, hostile text fields); the 15 new
+package tests fail against the 0.0.10 source.
+
+**Remediation (baseline):** render the script with `replaceMany` (one pass) and give `String.replace` a
 function replacer for the licence line. Add one test per case. Single solution, no decision needed.
 
 ### F19 — `CHAIN_IDS` is indexed by a caller-supplied network name without `Object.hasOwn`
 
-**Severity:** Info   **Disposition:** DEFERRED (next patch release, 0.0.11; maintainer)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit pending)
 **Where:** `src/package.ts:54-57, 235` (`CHAIN_IDS[result.network]`).
 
 **Issue:** the TS lens (*Caller-keyed lookups*) asks for `Object.hasOwn` or a `Map` when a record is
@@ -919,7 +942,15 @@ cast) can pass `constructor`. Probe: `buildPackageFiles` then writes a `Publishe
 **Impact:** a malformed `Published.toml` in the user's own downloaded package, from a caller bug. Not
 reachable from user input in the consumer (the network comes from its own config).
 
-**Remediation / evidence:** `Object.hasOwn(CHAIN_IDS, result.network) ? CHAIN_IDS[result.network] : undefined`
+**Resolution (2026-10-10):** `chainIdOf` reads `CHAIN_IDS` by own key only. Every other lookup keyed by a caller or
+node value in `src` was checked: `rename[id]` in the patcher (module identifiers) and `types[c.objectId]` in
+`toSuiTxResult` (object ids from the node) had the same shape and now use `Object.hasOwn`; the remaining
+indexed reads use fixed internal keys (`TEMPLATE_DEFAULTS[k]`, `TEXT_LIMITS[key]`, the `replaceMany` match). Evidence:
+`tests/package.test.ts` ("Published.toml chain ids are looked up by own key": `constructor`, `toString`,
+`__proto__`, `hasOwnProperty`, `valueOf` write no `Published.toml`; testnet and mainnet still do),
+`tests/deploy.test.ts` (object id `constructor` gets no inherited type).
+
+**Remediation (baseline):** `Object.hasOwn(CHAIN_IDS, result.network) ? CHAIN_IDS[result.network] : undefined`
 (or a `Map`). One test.
 
 ### F20 — `listMyTokens` throws for a wallet that holds coins from more than 200 foreign packages
@@ -940,6 +971,31 @@ wrong: it is either complete or an error.
 truncation" invariant forbids. Callers can raise `maxHeldCoinTypes` or catch the error and fall back to the
 capability-based rows. Not verified here: how token-deployer-ui presents the error (its own audit).
 
+**Re-evaluated 2026-10-10 (OQ4):** no single best-practice fix exists. A cheaper read does not exist (the publisher
+of a package is only known from its publishing transaction), a silent skip breaks the no-truncation invariant, and
+returning a partial list with an `incomplete` flag changes the return type and the consumer contract (a product
+choice). Left ACCEPTED-RISK; the options and the recommendation are in OQ4.
+
+### F21 — Generated packages carry no `Move.lock` (client half of template F7)
+
+**Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit pending; found 2026-10-10)
+**Where:** `src/package.ts` `buildPackageFiles`; `scripts/gen-template.mjs` `FILES`.
+
+**Issue:** `@meddleware/sui-token-template` 1.0.9 ships `Move.lock` (the framework revision it was built and tested
+with) and its CLI generator copies it into every generated package with the root package pin renamed. The
+client's source package did not, so a downloaded package resolved the framework at whatever the toolchain
+picked, not the revision the shipped bytecode was built against.
+
+**Impact:** a generated package could build to different bytecode than the one published (framework drift). No
+funds or on-chain values were affected; the published coin is the patched template bytecode.
+
+**Resolution (2026-10-10):** `gen-template.mjs` reads `Move.lock` into `TEMPLATE_FILES`; `renderMoveLock` replaces
+exactly the one line `[pinned.testnet.sui_token_template]` with `[pinned.testnet.<packageName>]` (as `set_line` in
+`03_create_token.sh`), fails on template drift (not exactly one such line, or the template name left over), and
+`Move.lock` is in the file map and the zip. Evidence: `tests/package.test.ts` ("Move.lock carries the template
+framework pin": only the root pin changes, the revision equals the template's, zip entry present),
+`scripts/e2e-localnet.mjs` (the generated lock pins the new package), `npm run check:template` (1.0.9).
+
 ---
 
 ## Section A — Invariant verification matrix
@@ -947,11 +1003,11 @@ capability-based rows. Not verified here: how token-deployer-ui presents the err
 | # | Invariant | Enforced at | Proven by | Status |
 | --- | --- | --- | --- | --- |
 | A1 | No unvalidated value reaches Move source or bytecode | `assertTokenConfig`; patcher rechecks (`rules.ts:127-172`, `patch.ts`) | `rules.test.ts`, `template.test.ts` | HOLDS |
-| A2 | The patched module and the rendered Move source encode exactly the config | `patch.ts:184-232` (pristine-pool slots, placeholder refusal, decoded post-condition), `package.ts` `replaceMany` | `template.test.ts` (F1 cases), `package.test.ts` (one-pass) | HOLDS — F1 (the generated `publish.sh` is outside this row: F18) |
+| A2 | The patched module and the rendered Move source encode exactly the config | `patch.ts:184-232` (pristine-pool slots, placeholder refusal, decoded post-condition), `package.ts` `replaceMany` | `template.test.ts` (F1 cases), `package.test.ts` (one-pass; hostile values) | HOLDS — F1, F18 (the generated `publish.sh` and README licence line render in one literal pass) |
 | A3 | The shipped module is the pinned template's | `gen-template.mjs` + `check:template` | CI (`node-ci.yml`) | HOLDS |
 | A4 | Exact type matching; the coin belongs to the published package | `typeNames.ts`, `results.ts` | look-alike, nested-generic, long-form tests | HOLDS |
 | A5 | Only explicit success counts; post-publish failures are typed | `deploy.ts` (`assertSuccess`, `PublishedError` family) | `deploy.test.ts` | HOLDS |
-| A6 | Recovery never duplicates effects | `buildFinalizeTransaction` mints and freezes nothing; `finalizeToken` | `transactions.test.ts`, `deploy.test.ts`; the stale-reference rejection is chain behaviour, not run live (S5) | HOLDS — F3 |
+| A6 | Recovery never duplicates effects | `buildFinalizeTransaction` mints and freezes nothing; `finalizeToken` | `transactions.test.ts`, `deploy.test.ts`; `e2e:localnet` runs a second finalize and the chain refuses it without effect (S5, 2026-10-10) | HOLDS — F3 |
 | A7 | The recipient receives every authority that exists | `transactions.ts:49, 124-127` | `transactions.test.ts` (UpgradeCap, supply and caps to the recipient) | HOLDS — F2 |
 | A8 | Declared policies are discoverable on-chain | template 1.0.8 `init`; `patch.ts` constants; `assertResultMatchesPolicy` | `template.test.ts`, `transactions.test.ts`; `e2e:localnet` reads the registry's `Fixed` and deleted-cap state | HOLDS — F4 |
 | A9 | Fee split exact, in the publish PTB; recipient validated | `buildPublishTransaction` | `transactions.test.ts` | HOLDS — F7 |
@@ -961,18 +1017,18 @@ capability-based rows. Not verified here: how token-deployer-ui presents the err
 | A13 | The patched constant pool has no duplicates and every `LdConst` points at its own value | `dedupeConstantPool` (`patch.ts:90-116`) | `template.test.ts` merge tests; localnet equal-constants publish | HOLDS — F16 |
 | A14 | What the publish created matches the chosen policies | `assertResultMatchesPolicy` (`results.ts:136-158`), called by `deployToken` and `buildFinalizeTransaction` | `transactions.test.ts`, `deploy.test.ts` | HOLDS — F4 |
 | A15 | TS: compiler strictness | `tsconfig.json`: `strict`, `noUncheckedIndexedAccess`; `skipLibCheck` hides only declaration files, not `src` | `tsc --noEmit` in CI | HOLDS |
-| A16 | TS: assertions at trust boundaries are justified | the `as unknown as` casts in `patch.ts:36, 142, 209, 213` act on the shipped module and the patcher's own output, not on RPC data; the `!` on `tokens.ts:99-101` follow `has` guards or a coin type already parsed from a struct tag | code reading; no `any`, no `eslint-disable` | HOLDS (code-only) — the `!` lines carry no inline reason (S6) |
+| A16 | TS: assertions at trust boundaries are justified | the `as unknown as` casts in `patch.ts:36, 142, 209, 213` act on the shipped module and the patcher's own output, not on RPC data; the `!` on `tokens.ts:99-103` follow `has` guards or a coin type already parsed from a struct tag, and each carries an inline reason since 0.0.11 | code reading; no `any`, no `eslint-disable` | HOLDS (code-only) — S6 |
 | A17 | TS: untrusted data is validated field by field, fail closed | `extractPublishResult` copies fields into a fresh literal; `listMyTokens` copies ids; unknown shapes yield `null` or a throw | `transactions.test.ts`, `tokens.test.ts` | HOLDS — no JSON is parsed here, so there is no size check to make |
 | A18 | TS: no swallowed rejections | the one `.catch` rethrows (`patch.ts:40`); the one `catch {}` returns `null` so an unparseable type never matches (`typeNames.ts:15`) | `wasm-init.test.ts`, `typeNames.test.ts` | HOLDS |
 | A19 | TS: network I/O has timeouts | no `fetch` in `src`; RPC runs through the caller's client; the wasm URL is loaded by the SDK from a host-supplied source | grep | N/A (host-supplied wasm load has no timeout here) |
 | A20 | TS: encoding is correct for non-ASCII input | text is ASCII-only by rule; BCS strings via `bcs.string()`, base64 via SDK helpers, zip via `strToU8`; no `btoa`/`atob` | grep; `rules.test.ts` | HOLDS |
 | A21 | TS: no secrets in output, no dynamic code, no test-only mode | no logging or `eval`; no mock mode in `src` (mocks live in `tests/`) | grep | HOLDS |
-| A22 | TS: caller-keyed lookups use `Object.hasOwn` | `CHAIN_IDS[result.network]` does not (`package.ts:235`) | probe (`constructor`) | **GAP** — F19 |
-| A23 | TS: comments and docs match the code | source comments describe the current design; `SECURITY.md`, one README sentence and `AGENTS.md` do not | reading | **GAP** — F11 |
+| A22 | TS: caller-keyed lookups use `Object.hasOwn` | `chainIdOf` (`Object.hasOwn`), the patcher's identifier rename and `toSuiTxResult`'s type lookup use own keys | `package.test.ts` (`constructor`, `__proto__`, …), `deploy.test.ts` | HOLDS — F19 |
+| A23 | TS: comments and docs match the code | source comments, `SECURITY.md`, the README, `AGENTS.md` and `CLAUDE.md` describe the `init`-applied design | reading | HOLDS — F11 |
 | A24 | SC: ABI mirroring | `buildPublishTransaction` / `buildFinalizeTransaction`; `make_immutable` (1 arg), `finalize_registration<T>(0xc, Receiving)` | exact-command tests (target, argument values and order); live arity check | HOLDS |
 | A25 | SC: package-id semantics | only `0x1`, `0x2`, `0xc` literals; the coin type is read from the publish effects | n/a | N/A (no first-party package ids) |
 | A26 | SC: network / chain binding | the caller owns the RPC client and the wallet chain; `network` labels the result; chain ids written into `Published.toml` match each network | live drift test; localnet gets no `Published.toml` | HOLDS (code-only) |
-| A27 | SC: value encoding | amounts are `bigint`; the supply is scaled as a `bigint` and checked against u64 in `rules.ts` and `patch.ts`; the recipient and fee recipient must be full 66-character addresses; `tokens.ts` compares normalised addresses | `rules.test.ts`, `transactions.test.ts` | HOLDS — `transactions.ts:98, 125` compare two addresses with `toLowerCase`, which is safe for full-form addresses (S6) |
+| A27 | SC: value encoding | amounts are `bigint`; the supply is scaled as a `bigint` and checked against u64 in `rules.ts` and `patch.ts`; the recipient and fee recipient must be full 66-character addresses; `tokens.ts` compares normalised addresses | `rules.test.ts`, `transactions.test.ts` | HOLDS — `transactions.ts` compares the sender and the recipient with `normalizeSuiAddress` since 0.0.11 (S6) |
 | A28 | SC: funds in the PTB | one `splitCoins(tx.gas, [fee])` to the recipient, the UpgradeCap or `make_immutable`, and the `transferObjects` of what `init` created; nothing else moves | `transactions.test.ts` (exact commands) | HOLDS |
 | A29 | SC: capabilities and irreversible operations | `make_immutable` consumes the UpgradeCap only under the `immutable` policy, in the publish PTB the user signs; the UI confirmation lives in token-deployer-ui | `transactions.test.ts` | HOLDS |
 | A30 | SC: execution result | `assertSuccess`; `waitForTransaction` before the finalize and before returning; a wait failure is `DeployIncompleteError` / `DeployUnconfirmedError`, never swallowed | `deploy.test.ts` | HOLDS |
@@ -987,21 +1043,21 @@ capability-based rows. Not verified here: how token-deployer-ui presents the err
 
 ### B.1 Dependency & CVE risk
 
-`npm audit --audit-level=high`: 0 (2026-10-09).
+`npm audit --audit-level=high`: 0 (2026-10-10); `npm ls --all` exits 0 and runs in CI.
 
 | Dependency | Range (installed) | Liveness dependency? | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `@mysten/sui` | `^2.33.1` (2.33.2) | PTBs, types, BCS | clean | a dependency, not a peer: F17 (siblings use `^2.33.2` as a peer) |
+| `@mysten/sui` | peer `^2.33.2` (dev 2.33.2) | PTBs, types, BCS | clean | a peer since 0.0.11, as in the sibling SDKs (F17) |
 | `@mysten/move-bytecode-template` | `~0.4.1` (0.4.1) | patching (wasm); a load failure surfaces and the next call retries | clean | round trip checked at generation; decoded post-check at patch time (F1) |
 | `fflate` | `^0.8.3` (0.8.3) | zip | clean | |
-| `@meddleware/sui-token-template` (dev) | `1.0.8` exact | artefact generation | provenance | hashes checked by `check:template` |
+| `@meddleware/sui-token-template` (dev) | `1.0.9` exact | artefact generation | provenance | hashes checked by `check:template` |
 | Sui full nodes (public) | n/a | `test:integration` and the caller's executor | n/a | the library makes no RPC calls except the reads of `listMyTokens`, through the caller's client; all fail closed |
 
 **TS lens shared-dependency matrix row:**
 
 | Package | dependency | devDependency | peer |
 | --- | --- | --- | --- |
-| `@mysten/sui` | `^2.33.1` (deviates: the baseline for SDKs is a `^2.33.2` peer — F17) | — | — |
+| `@mysten/sui` | — | `^2.33.2` (tests) | `^2.33.2` (F17) |
 | `@mysten/move-bytecode-template` | `~0.4.1` (third-party wasm helper; the same range in token-deployer-ui) | — | — |
 | `typescript` / `vitest` | — | `~6.0.3` / `~5.0.2` (installed 6.0.3 / 5.0.3) | — |
 
@@ -1010,7 +1066,7 @@ capability-based rows. Not verified here: how token-deployer-ui presents the err
 | Check | Result |
 | --- | --- |
 | `exports` / `types` | four entry points, each with a `types` condition (`dist/*.d.ts`) and a `default` condition (`src/*.ts`) |
-| `files` | `src`, `dist`, `CHANGELOG.md`; `npm pack --dry-run`: 30 files, 43.9 kB, no tests, fixtures, `.env*` or keys (`README.md`, `LICENSE` and `package.json` are added by npm). `SECURITY.md` is not shipped |
+| `files` | `src`, `dist`, `CHANGELOG.md`; `npm pack --dry-run`: 30 files, 45.7 kB, no tests, fixtures, `.env*` or keys (`README.md`, `LICENSE` and `package.json` are added by npm). `SECURITY.md` is not shipped |
 | `sideEffects` | `false`, accurate: no module has import-time effects (the wasm is loaded on the first patch) |
 | Ships-source | consumers resolve types from `dist`; CI builds the declarations and checks the tarball |
 
@@ -1062,8 +1118,8 @@ capability-based rows. Not verified here: how token-deployer-ui presents the err
 | --- | --- | --- | --- |
 | `transactions.ts:18-19` | `0x1`, `0x2` | system packages | protocol |
 | `transactions.ts:120` | `0xc` | coin registry | protocol |
-| `package.ts:54-57` | testnet `4c78adac`, mainnet `35834a8a` | chain ids in `Published.toml` | live integration test (weekly) |
-| `artifact.ts` | template module and hashes | bytecode | `sui-token-template@1.0.8` |
+| `package.ts` (`CHAIN_IDS`) | testnet `4c78adac`, mainnet `35834a8a` | chain ids in `Published.toml` | live integration test (weekly) |
+| `artifact.ts` | template module and hashes | bytecode | `sui-token-template@1.0.9` |
 
 No first-party package id is held: the table needs no per-network original-id / published-at record.
 
@@ -1083,44 +1139,44 @@ two Move calls above.
 The source package is rendered from the same template text, with the same values as the patched
 bytecode (`package.ts`), in one pass. Parity holds for valid inputs and for placeholder-valued ones (F1:
 refused, or rendered once). Outside the Move source, the generated `publish.sh` and the README licence
-line can differ from the config in two odd cases (F18).
+line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lock` is the template's with the root pin renamed (F21).
 
 ### B.OPS-1 Runbook linkage
 
 | Script | Purpose | Dry-run command | Recovery command | Linked from |
 | --- | --- | --- | --- | --- |
-| `scripts/e2e-localnet.mjs` | real deploy against a local network, with registry-state, recovery and listing checks | n/a (it signs only with an ephemeral key on a chain it refuses to run against if public) | rerun after `sui start --with-faucet --force-regenesis` | README "Development", `CLAUDE.md` "Testing", `AGENTS.md` |
+| `scripts/e2e-localnet.mjs` | real deploy against a local network, with registry-state, recovery, refused-second-finalize and listing checks | n/a (it signs only with an ephemeral key on a chain it refuses to run against if public) | rerun after `sui start --with-faucet --force-regenesis` | README "Development", `CLAUDE.md` "Testing", `AGENTS.md` |
 | `scripts/gen-template.mjs` | writes or checks the template artefact (no chain access) | `npm run check:template` | `npm run gen:template` | README, `CLAUDE.md`, `AGENTS.md` |
 
 ---
 
 ## Section C — Test-coverage & hermetic/live split
 
-### C.1 Coverage grade — A (126/126; 97.88% statements, 90.71% branches, 100% functions, 99.15% lines; 2026-10-09)
+### C.1 Coverage grade — A (148/148; 97.92% statements, 90.97% branches, 100% functions, 99.17% lines; 2026-10-10)
 
 | Dimension | Assessment |
 | --- | --- |
 | Happy path | Rules, patching (text, decimals, supply and policy constants), builders (exact commands), parsing, deploy, finalize recovery, listing (both rules), package generation, Walrus-URL icons, wasm init |
-| Error path | Every rule; look-alike types; missing and extra caps (`assertResultMatchesPolicy`); failed publish and finalize; confirmation failures (typed); failed transaction mapping; listing overflow and failed lookup. **Missing:** a second finalize rejected by a real chain (S5) |
-| Boundary | Limits per field; decimals 0 and 18; u64 supply edge; placeholder-valued text; equal constants; empty strings; a fixed supply with zero supply. **Missing:** a module named like a template key in the generated script (F18) |
-| Security-relevant | Strong on injection, type matching, policy fidelity and the patcher post-condition. Recipient authority and registry-recorded policies are covered (F2, F4). Prototype keys in `CHAIN_IDS` are not (F19) |
+| Error path | Every rule; look-alike types; missing and extra caps (`assertResultMatchesPolicy`); failed publish and finalize; confirmation failures (typed); failed transaction mapping; listing overflow and failed lookup; a second finalize rejected by a real chain (`e2e:localnet`, S5) |
+| Boundary | Limits per field; decimals 0 and 18; u64 supply edge; placeholder-valued text; equal constants; empty strings; a fixed supply with zero supply; a module named like a template key in the generated script and `$` sequences in the licence name (F18) |
+| Security-relevant | Strong on injection, type matching, policy fidelity and the patcher post-condition. Recipient authority and registry-recorded policies are covered (F2, F4). Prototype keys in `CHAIN_IDS` and in the object-type map are covered (F19); so is the generated `Move.lock` (F21) |
 
 **Test layers:**
 
 | Layer | Files | In CI? | Gate |
 | --- | --- | --- | --- |
-| Unit | 10 files, 126 tests | yes (`node-ci.yml`, and the publish `verify`) | `npm test` |
+| Unit | 11 files, 148 tests | yes (`node-ci.yml`, and the publish `verify`) | `npm test` |
 | Live read (ABI drift + chain ids, testnet and mainnet) | `tests/integration/abi-drift.integration.test.ts` (6 tests) | yes, weekly (`live.yml`) | `GRPC_TESTNET=1` (`npm run test:integration`) |
-| Localnet e2e (deploy, registry state of fixed/frozen coins, equal-constants publish, refused-finalize recovery, listing, balance, package) | `scripts/e2e-localnet.mjs` | **no** (run by hand before a release; PASS 2026-10-09) | needs `sui start --with-faucet`; `E2E_ALLOW_PUBLIC=1` overrides the public-network guard |
+| Localnet e2e (deploy, registry state of fixed/frozen coins, equal-constants publish, refused-finalize recovery, refused second finalize, listing, balance, package) | `scripts/e2e-localnet.mjs` | **no** (run by hand before a release; PASS 2026-10-10) | needs `sui start --with-faucet`; `E2E_ALLOW_PUBLIC=1` overrides the public-network guard |
 | Real-chain deploy (testnet / mainnet) | token-deployer-ui `e2e:*` | manual, in the consumer | the consumer's own gates |
 
 ### C.2 Hermetic vs. live paths
 
 | Path | Hermetic? | Deferred to | Tracking |
 | --- | --- | --- | --- |
-| Patched module passes on-chain bytecode verification | no | localnet e2e (manual before a release; PASS 2026-10-09) | F9, F16 |
+| Patched module passes on-chain bytecode verification | no | localnet e2e (manual before a release; PASS 2026-10-10) | F9, F16 |
 | Finalize semantics (registration, transfers) and the registry's recorded policies | builder shape only | localnet e2e | F3, F4 |
-| A repeated finalize is rejected without effect | no (needs a chain) | not exercised; S5 | F3 |
+| A repeated finalize is rejected without effect | no (needs a chain) | localnet e2e (PASS 2026-10-10: the chain reports the consumed Currency as not found; balance and registry state unchanged) | F3, S5 |
 | Framework ABI | arity table | live drift (weekly) | F9 |
 | Capability-less listing against real balances and packages | mocked client | localnet e2e (fixed/frozen coin listed) | F5 |
 
@@ -1130,7 +1186,7 @@ line can differ from the config in two odd cases (F18).
 
 ### pre-localnet
 
-- [x] rules enforced before every sink; artefact verified; strict TS; tests green — F13 (126/126, tsc, eslint clean)
+- [x] rules enforced before every sink; artefact verified; strict TS; tests green — F13 (148/148, tsc, eslint clean; 0.0.11)
 - [x] patcher post-condition and placeholder rejection — F1, F8 (0.0.6, `6d3b7c2`)
 - [x] strict type-check and lint green; no swallowed promises on security paths — A15, A18
 - [x] untrusted parsers validate every field (no JSON parsed; effects and types parsed strictly) — A17
@@ -1141,12 +1197,14 @@ line can differ from the config in two odd cases (F18).
 
 - [x] exact-type parsing; typed post-publish errors; exact-split fee — F14, F15
 - [x] finalize retry idempotent — F3 (0.0.9: finalize mints nothing)
-- [x] live drift in CI (weekly `live.yml`, 6/6 on 2026-10-09); localnet e2e run by hand before a release (PASS 2026-10-09) — F9 (MITIGATED; a CI localnet job is a maintainer decision)
+- [x] live drift in CI (weekly `live.yml`, 6/6 on 2026-10-09); localnet e2e run by hand before a release (PASS 2026-10-10) — F9 (MITIGATED; a CI localnet job is a maintainer decision)
 - [x] `npm pack` contents verified (30 files); B.TS-2 inventory complete — B.TS-1, B.TS-2
 - [x] audit gate in CI and publish (`npm audit --audit-level=high`, 0) and `npm ci` — B.TS-3
 - [x] consumed ids: system ids only, chain ids drift-tested; ABI-drift test green — B.SC-1, A12
-- [ ] shared-dependency matrix aligned with ADR-0001: `@mysten/sui` is a dependency, not a peer — F17 (next patch)
-- [ ] `SECURITY.md` consistent with the code — F11 (next patch)
+- [x] shared-dependency matrix aligned with ADR-0001: `@mysten/sui` is a peer (`^2.33.2`) and a devDependency; `npm ls --all` in CI — F17 (0.0.11, commit pending; `package.json`, `node-ci.yml`)
+- [x] `SECURITY.md` consistent with the code — F11 (0.0.11, commit pending; rewritten policies section, README, `AGENTS.md`, `CLAUDE.md`)
+- [x] generated packages carry the template's `Move.lock` (root pin renamed) — F21 (0.0.11, commit pending; template 1.0.9, template audit F7 client half)
+- [x] a second finalize is refused by a real chain without effect — S5 (`e2e:localnet`, PASS 2026-10-10)
 
 ### pre-mainnet *(the consumer deploys on mainnet with a manual guard)*
 
@@ -1154,7 +1212,7 @@ line can differ from the config in two odd cases (F18).
 - [x] policy discoverability through the coin registry — F4 (OQ2); proven on localnet
 - [x] fee recipient validated in the library — F7
 - [x] chain ids for mainnet drift-tested live (weekly) — A12
-- [ ] no raw `btoa`/`atob`, every fetch with a timeout, no unjustified assertions at trust boundaries: holds in `src` except the `!` lines without a reason (A16, S6); `CHAIN_IDS` lookup — F19 (next patch)
+- [x] no raw `btoa`/`atob`, every fetch with a timeout (none), no unjustified assertions at trust boundaries (the `!` lines carry reasons, A16, S6), caller-keyed lookups by own key — F19 (0.0.11, commit pending; `tests/package.test.ts`, `tests/deploy.test.ts`)
 - [ ] external review — maintainer-only (`OPERATOR_TASKS.md`, external review before mainnet)
 
 ---
@@ -1162,9 +1220,9 @@ line can differ from the config in two odd cases (F18).
 ## Cross-project themes
 
 - **Supply chain:** the strongest artefact pipeline among the SDKs. A pinned, provenance-attested
-  template (1.0.8); hash-checked generation; a round-trip check; CI drift checks; `npm ci`, an audit gate in
-  CI and publish, SHA-pinned Actions, OIDC provenance (0.0.10), grouped weekly Dependabot. One deviation
-  from the fleet pattern: `@mysten/sui` is a dependency, not a peer (F17).
+  template (1.0.9); hash-checked generation; a round-trip check; CI drift checks; `npm ci`, `npm ls --all`, an
+  audit gate in CI and publish, SHA-pinned Actions, OIDC provenance (0.0.10), grouped weekly Dependabot.
+  `@mysten/sui` is a peer, as in the fleet pattern (F17, 0.0.11).
 - **Wire-format coupling:** template bytecode ↔ generated source ↔ the patcher's constant map, kept in
   step by `gen-template.mjs` (including the three policy constants) and, at patch time, by the pristine-pool
   resolution, the constant-pool merge and the decoded post-condition (F1, F16). Framework calls are drift-tested
@@ -1172,17 +1230,18 @@ line can differ from the config in two odd cases (F18).
 - **On-chain-truth boundary:** the supply and metadata policies are applied by the coin's own `init` in the
   signed publish transaction, and the coin registry records them (F4). The library checks what the publish
   created against the policy before it goes on. Nothing in the client decides accounting.
-- **Deployment readiness:** Section D is current; the unticked items are F17 and F11 (next patch) and the
-  external review (maintainer-only).
+- **Deployment readiness:** Section D is current; the one unticked item is the external review
+  (maintainer-only).
 - **Chain-access layering (ADR-0001):** this is the domain client for the token template. The consumer
   keeps only UI and wallet wiring (token-deployer-ui 0.0.35 pins `^0.0.10`); IDs are framework constants.
 - **Pre-v0.2 policy:** every fix since the baseline was a patch bump that changed exported behaviour without
-  shims (0.0.6, 0.0.9 and 0.0.10 are marked breaking in the CHANGELOG). F11, F17-F19 are next-patch items
-  (0.0.11), with token-deployer-ui bumped in step.
+  shims (0.0.6, 0.0.9, 0.0.10 and 0.0.11 are marked breaking in the CHANGELOG). F11, F17-F19 and F21 shipped
+  in 0.0.11; token-deployer-ui follows with `^0.0.11` (it already declares `@mysten/sui` `^2.34.0`).
 - **Shared with sibling audits:**
-  - access-gate-client F9 (`@mysten/sui` as a peer: fixed there, open here as F17);
+  - access-gate-client F9 (`@mysten/sui` as a peer: fixed there, fixed here as F17 in 0.0.11);
   - walrus-client F7 (recovery that can double-charge or double-act: resolved here as F3);
-  - sui-token-template audit F6 (registry policies, closed by template 1.0.8) and F9 (client coupling);
+  - sui-token-template audit F6 (registry policies, closed by template 1.0.8), F7 (`Move.lock`: the client half is
+    F21 here) and F9 (client coupling);
   - token-deployer-sui predecessor F4 and F5 (resolved: F14).
 
 ---
@@ -1195,14 +1254,14 @@ line can differ from the config in two odd cases (F18).
 2. MUST route every authority object to the configured recipient, or disclose otherwise in the result
    and docs — **holds** (F2: the UpgradeCap goes to the recipient; the generated README says so).
 3. MUST NOT let a recovery retry repeat an already executed finalize — **holds** (F3: finalize mints and
-   freezes nothing; a repeat is rejected by the chain; not exercised live, S5).
+   freezes nothing; a repeat is rejected by the chain, observed on localnet 2026-10-10, S5).
 4. MUST make declared supply and metadata policies verifiable through the coin registry, or document
    why not — **holds** (F4: applied in `init`; `e2e:localnet` reads the registry).
 5. MUST validate the fee recipient as a full, non-zero address — **holds** (F7).
-6. MUST keep `SECURITY.md`, `README.md` and `AGENTS.md` consistent with the code — **does not hold yet**
-   (F11, next patch).
-7. MUST declare the `@mysten/sui` copy the host shares as a peer dependency (TS-M9) — **does not hold** (F17,
-   next patch).
+6. MUST keep `SECURITY.md`, `README.md` and `AGENTS.md` consistent with the code — **holds** (F11, 0.0.11).
+7. MUST declare the `@mysten/sui` copy the host shares as a peer dependency (TS-M9) — **holds** (F17, 0.0.11).
+8. MUST render every generated file literally and carry the template's `Move.lock` (template F7) — **holds**
+   (F18, F21, 0.0.11).
 
 **SUI_CLIENT lens baseline:**
 
@@ -1211,7 +1270,7 @@ line can differ from the config in two odd cases (F18).
 | SC-M1 | N/A (framework IDs only; no first-party package) | B.SC-1 |
 | SC-M2 | yes | A4, A31 |
 | SC-M3 | yes (explicit success; finality awaited before finalize and before reporting) | A5, A30 |
-| SC-M4 | yes (`bigint` amounts; full-form addresses; `tokens.ts` normalises; the two `toLowerCase` compares are safe for full-form addresses, S6) | A27 |
+| SC-M4 | yes (`bigint` amounts; full-form addresses; `tokens.ts` and `transactions.ts` compare normalised addresses, S6) | A27 |
 | SC-M5 | caller-supplied network, RPC client and wallet; chain ids drift-tested; no first-party ids to fail closed | A26 |
 | SC-M6 / SC-M7 | N/A (no signature verification, no authorising events) | A32 |
 | SC-M8 | N/A (no dry-run PTBs) | A32 |
@@ -1222,15 +1281,15 @@ line can differ from the config in two odd cases (F18).
 
 | ID | Holds? | Evidence |
 | --- | --- | --- |
-| TS-M1 | yes (`strict`, `noUncheckedIndexedAccess`; the casts and `!` are on trusted or guarded values, without inline reasons on the `!` lines, S6) | A15, A16 |
+| TS-M1 | yes (`strict`, `noUncheckedIndexedAccess`; the casts and `!` are on trusted or guarded values, the `!` lines carry inline reasons, S6) | A15, A16 |
 | TS-M2 | yes (config, licence fields and effects validated; no JSON parsed) | F6, A17 |
 | TS-M3 | yes | A27 |
 | TS-M4 | yes | A18 |
 | TS-M5 | N/A (no fetch; RPC through the caller's client; the wasm source is host-supplied) | A19 |
 | TS-M6 | yes (no logging, no dynamic code) | A21 |
 | TS-M7 | yes (`files` whitelist, 30-file pack; install-time inventory in B.TS-2) | B.TS-1, B.TS-2 |
-| TS-M8 | partly (`npm ci`, audit gate with no allowlist, npm pinned; `@mysten/sui` deviates from the baseline pattern) | B.TS-3, F17 |
-| TS-M9 | **no** (`@mysten/sui` is a dependency; `.d.ts` declarations are shipped) | F17 |
+| TS-M8 | yes (`npm ci`, `npm ls --all`, audit gate with no allowlist, npm pinned; `@mysten/sui` is a peer) | B.TS-3, F17 |
+| TS-M9 | yes (`@mysten/sui` is a peer dependency; `.d.ts` declarations are shipped) | F17 |
 
 **OPS lens (scoped):**
 
@@ -1255,12 +1314,14 @@ line can differ from the config in two odd cases (F18).
 - **S3** MAY include `upgradeCapOwner` in `PublishResult` and in the generated `deployments.md` (F2); the
   README note already states who holds the UpgradeCap.
 - **S4** MAY derive `feeMist` and `feeRecipient` in the result from the effects' balance changes (F7).
-- **S5** SHOULD add a step to `e2e:localnet` that runs `finalizeToken` a second time on an already
-  finalized coin and expects the chain to refuse it without effect (F3, C.2).
-- **S6** MAY compare addresses with `normalizeSuiAddress` instead of `toLowerCase` in
-  `transactions.ts:98, 125`, and give the `!` assertions in `tokens.ts:99-101` an inline reason (A16, A27).
-- **S7** SHOULD add `engines` (`node >= 24`) to `package.json` once F17's patch is cut, matching the
-  workspace's Node 24 LTS decision (F11).
+- **S5** *Implemented in 0.0.11:* `e2e:localnet` runs `finalizeToken` a second time on an already finalized
+  coin; the chain refuses it (the consumed Currency is "not found") and the balance and registry state do not
+  change (F3, C.2; PASS 2026-10-10).
+- **S6** *Implemented in 0.0.11:* `transactions.ts` compares addresses with `normalizeSuiAddress`, and the `!`
+  assertions in `tokens.ts` carry an inline reason (A16, A27).
+- **S7** SHOULD add `engines` to `package.json`, matching the workspace's Node 24 LTS decision (F11). Not done:
+  the fleet's `engines` strings differ (`^22.18.0 || >=24.12.0` in the apps; none in the sibling SDKs), so the
+  value is a fleet decision, not a local one (OQ5).
 
 ## Open questions (`OQ#`)
 
@@ -1275,6 +1336,14 @@ line can differ from the config in two odd cases (F18).
    (Decided 2026-10-09: "coins you can mint or edit, plus coins you hold from a package you published";
    a coin whose caps went to a recipient lists under the recipient, a coin merely received does not — see F5,
    0.0.7 and 0.0.10.)
+4. **OQ4** F20: what should `listMyTokens` do for a wallet holding coins from more than `maxHeldCoinTypes`
+   foreign packages? Options: (a) throw, as today (fail closed, complete or an error); (b) return the
+   capability-based rows plus an `incomplete: true` marker for the capability-less part, which changes the
+   return type and every caller; (c) raise the default limit, which only moves the cliff and the read cost.
+   Recommendation: keep (a). The caller already has the escape hatches (`maxHeldCoinTypes`, or catch and show the
+   capability rows), and (b) is a consumer-contract decision for token-deployer-ui's owner.
+5. **OQ5** S7: which `engines` value should the SDK packages declare (`^22.18.0 || >=24.12.0` as the apps do, or
+   `>=24`)? Recommendation: decide once for the fleet, then add it here in a patch.
 
 ## Risks
 
@@ -1344,17 +1413,34 @@ line can differ from the config in two odd cases (F18).
     shows the `listMyTokens` limit error (F20; its own audit).
   - Pre-save consistency checklist re-run (below).
 
-## Pre-save consistency checklist (2026-10-09 re-verification)
+- 2026-10-10 — Fix wave for 0.0.11 (local commit pending; not released) against template 1.0.9.
+  - **Done:** re-pinned `@meddleware/sui-token-template` to 1.0.9 and regenerated `src/template` (`check:template`
+    passes; hashes unchanged, `files.ts` now also carries `Move.lock` and the new `publish.sh`); **F21 found and
+    RESOLVED** (generated packages now carry `Move.lock` with the root pin renamed: the client half of template
+    audit F7); **F11, F17, F18, F19 RESOLVED**; S5 and S6 implemented; F20 re-evaluated, stays ACCEPTED-RISK
+    (OQ4); S7 left open (OQ5); F9 left as is (the localnet e2e is a manual pre-release run).
+  - **Measured:** vitest 148/148 (11 files; 19 of the new tests fail against the 0.0.10 source); tsc, eslint,
+    `npm audit --audit-level=high` (0), `npm ls --all`, `check:template` (1.0.9) and `npm run build` clean; pack
+    30 files, 45.7 kB; `npm run e2e:localnet` PASS against a local `sui start --with-faucet --force-regenesis`
+    (sui 1.81.0), including the new refused-second-finalize step and the generated-`Move.lock` check. Coverage
+    97.92 / 90.97 / 100 / 99.17 (plugin installed `--no-save`, then removed).
+  - **Lookups checked (F19):** every record or object indexed by a caller or node value in `src`
+    (`CHAIN_IDS`, the patcher's `rename`, `toSuiTxResult`'s `types`); the rest use fixed internal keys.
+  - **Next:** release 0.0.11 (tag after the orchestrator's review), then token-deployer-ui `^0.0.11`. Template
+    audit F7 can move to RESOLVED citing 0.0.11 (`tests/package.test.ts` "Move.lock carries the template
+    framework pin", `scripts/e2e-localnet.mjs`, F21 here).
+  - Pre-save consistency checklist re-run (below).
 
-- [x] Section A ↔ findings — GAP rows are A22 (F19, DEFERRED) and A23 (F11, DEFERRED); A2, A6-A8, A10 and A13
-  are HOLDS beside RESOLVED findings.
+## Pre-save consistency checklist (2026-10-10 re-verification)
+
+- [x] Section A ↔ findings — no GAP rows remain; A2, A6-A8, A10, A13, A22 and A23 are HOLDS beside RESOLVED findings.
 - [x] Finding header ↔ body — each RESOLVED finding's evidence describes what was done; baseline text and
   recommendations are kept under separate labels.
 - [x] Template line: base + SUI_CLIENT + TS + OPS (scoped) with the registry's 2026-10-08 dates; untriggered
   lenses named.
 - [x] Closing four-part structure in order.
 - [x] Open questions stay listed; decisions are recorded as `(Decided …)` notes and in the log.
-- [x] Section D ↔ dispositions — the unticked items cite F17, F11 and the maintainer-only external review.
-- [x] Executive summary matches the dispositions and the ceiling (Info).
-- [x] Counts and versions re-measured 2026-10-09 (tests, coverage, pack, npm, template, provenance).
+- [x] Section D ↔ dispositions — the only unticked item is the maintainer-only external review.
+- [x] Executive summary matches the dispositions and the ceiling (Info; F20 the one open finding).
+- [x] Counts and versions re-measured 2026-10-10 (tests, coverage, pack, template); provenance as of 2026-10-09.
 - [x] Re-verification log entry added.

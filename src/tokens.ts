@@ -94,11 +94,13 @@ export async function listMyTokens(
     maxPages,
   )
 
+  // Every coin type reaching `entry` came from a parsed cap type or a parsed held type, so `typePackage` is set;
+  // the cap ids are read behind a `has` check on the same map.
   const entry = (coinType: string): DeployedToken => ({
     coinType,
-    packageId: typePackage(coinType)!,
-    ...(treasuries.has(coinType) ? { treasuryCapId: treasuries.get(coinType)! } : {}),
-    ...(metadataCaps.has(coinType) ? { metadataCapId: metadataCaps.get(coinType)! } : {}),
+    packageId: typePackage(coinType)!, // parsed above: a coin type with no package never gets here
+    ...(treasuries.has(coinType) ? { treasuryCapId: treasuries.get(coinType)! } : {}), // `has` just checked
+    ...(metadataCaps.has(coinType) ? { metadataCapId: metadataCaps.get(coinType)! } : {}), // `has` just checked
     label: coinType.split('::').pop() ?? coinType,
   })
   const out = [...new Set([...treasuries.keys(), ...metadataCaps.keys()])].map(entry)

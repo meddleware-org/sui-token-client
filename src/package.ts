@@ -56,11 +56,36 @@ const CHAIN_IDS: Partial<Record<TokenNetwork, string>> = {
   mainnet: '35834a8a',
 }
 
+/** The recorded chain id of `network`, or undefined: an own key only, so `constructor` and the like never match. */
+function chainIdOf(network: string): string | undefined {
+  return Object.hasOwn(CHAIN_IDS, network) ? CHAIN_IDS[network as TokenNetwork] : undefined
+}
+
 const isProprietary = (license: string) =>
   ['none', 'unlicensed', 'noassertion', ''].includes(license.trim().toLowerCase())
 
 function spdxId(license: string): string {
   return isProprietary(license) ? 'UNLICENSED' : license.trim()
+}
+
+/**
+ * Move.lock: the framework pin the template was built and tested with, so the generated package builds
+ * against the same revision. Mirrors `03_create_token.sh`: only the root package's pin carries the
+ * template name, and that whole line is replaced. The package name is a validated identifier.
+ *
+ * @throws {Error} if the template's lock does not hold exactly that one line (template drift).
+ */
+function renderMoveLock(cfg: TokenConfig): string {
+  const rootPin = '[pinned.testnet.sui_token_template]'
+  const lines = TEMPLATE_FILES['Move.lock'].split('\n')
+  if (lines.filter((l) => l === rootPin).length !== 1) {
+    throw new Error(`template drift: expected exactly one line '${rootPin}' in Move.lock`)
+  }
+  const out = lines.map((l) => (l === rootPin ? `[pinned.testnet.${cfg.packageName}]` : l)).join('\n')
+  if (cfg.packageName !== 'sui_token_template' && out.includes('sui_token_template')) {
+    throw new Error("template drift: the template identifier 'sui_token_template' is still in Move.lock")
+  }
+  return out
 }
 
 /** Move.toml: package name + license field. */
@@ -102,12 +127,14 @@ function renderSource(cfg: TokenConfig): string {
   })
 }
 
+/** The helper script: one pass, so a value that equals another key (a module `xmodulenamex`) is not rewritten. */
 function renderPublishScript(cfg: TokenConfig): string {
-  let out = replaceAll(TEMPLATE_FILES['scripts/publish.sh'], 'SUI_TOKEN_TEMPLATE', cfg.structName)
-  out = replaceAll(out, 'XMODULENAMEX', cfg.moduleName)
-  out = replaceAll(out, 'XPACKAGENAMEX', cfg.packageName)
-  out = replaceAll(out, 'XMETADATAPOLICYX', cfg.metadataPolicy)
-  return out
+  return replaceMany(TEMPLATE_FILES['scripts/publish.sh'], {
+    SUI_TOKEN_TEMPLATE: cfg.structName,
+    XMODULENAMEX: cfg.moduleName,
+    XPACKAGENAMEX: cfg.packageName,
+    XMETADATAPOLICYX: cfg.metadataPolicy,
+  })
 }
 
 /** The template README's licence line, whatever licence the template itself ships with. */
@@ -144,12 +171,11 @@ function renderReadme(cfg: TokenConfig): string {
 }
 
 function renderReadmeLicense(out: string, cfg: TokenConfig, licenseName: string): string {
-  return out.replace(
-    TEMPLATE_LICENSE_LINE,
-    isProprietary(cfg.license)
-      ? 'All rights reserved. This package is proprietary and not licensed for redistribution.'
-      : `${licenseName} — see the LICENSE file.`,
-  )
+  const line = isProprietary(cfg.license)
+    ? 'All rights reserved. This package is proprietary and not licensed for redistribution.'
+    : `${licenseName} — see the LICENSE file.`
+  // A function replacer: a string replacement would expand `$&`, `$'` and `$\`` from the licence name.
+  return out.replace(TEMPLATE_LICENSE_LINE, () => line)
 }
 
 /**
@@ -232,7 +258,7 @@ function renderDeployments(cfg: TokenConfig, result?: PublishResult): string {
  * Commit Published.toml to source control; add Pub.*.toml (ephemeral) to .gitignore.
  */
 function renderPublishedToml(result: PublishResult): string | null {
-  const chainId = CHAIN_IDS[result.network]
+  const chainId = chainIdOf(result.network)
   if (!chainId) return null // localnet: an ephemeral chain, nothing durable to record
   const lines = [
     `[published.${result.network}]`,
@@ -268,6 +294,7 @@ export function buildPackageFiles(opts: GeneratePackageOptions): Record<string, 
   if (licenseText) assertLicenseText(licenseText)
   const out: Record<string, string> = {
     'Move.toml': renderMoveToml(config),
+    'Move.lock': renderMoveLock(config),
     [`sources/${config.moduleName}.move`]: renderSource(config),
     'scripts/publish.sh': renderPublishScript(config),
     '.gitignore': TEMPLATE_FILES['.gitignore'],
