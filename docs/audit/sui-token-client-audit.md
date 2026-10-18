@@ -30,23 +30,24 @@ and Rust lenses, SITE, PLATFORM.
 
 **Deployment status:**
 
-- npm `@meddleware/sui-token-client` **0.0.10** (`latest`), published from tag `v0.0.10` = `e70a5ab`,
-  with an SLSA v1 provenance attestation (checked 2026-10-09). `main` is ahead of it: `fb7301b` (a
-  Dependabot lockfile-only bump) and the 0.0.11 fix wave of 2026-10-10 (commit `994b951`; not yet released).
+- npm `@meddleware/sui-token-client` **0.0.11** (`latest`, published 2026-10-10T14:54Z), published from tag
+  `v0.0.11` = `616b7ac` (code commit `994b951`, plus the Dependabot lockfile-only bump `fb7301b` since 0.0.10),
+  with an SLSA v1 provenance attestation (`dist.attestations` checked 2026-10-18). 0.0.10 (tag `v0.0.10` =
+  `e70a5ab`, 2026-10-09) was the version of the 2026-10-09 pass.
   Baseline of this audit: 0.0.5 at `6f09bb2`, 2026-10-02.
 - Releases since the baseline: 0.0.6 `6d3b7c2`, 0.0.7 `bd58328`, 0.0.8 `75dd34a` (template 1.0.7
   regeneration), 0.0.9 `677330f` and 0.0.10 `e70a5ab` (both 2026-10-09; template 1.0.8).
-- Pins `@meddleware/sui-token-template` **1.0.8** exactly in 0.0.10, so every coin it publishes applies its
-  supply and metadata policies in its own `init` (closes F4). The 0.0.11 work pins **1.0.9** (adds the shipped
+- Pins `@meddleware/sui-token-template` **1.0.9** exactly in 0.0.11 (1.0.8 in 0.0.10), so every coin it
+  publishes applies its supply and metadata policies in its own `init` (closes F4). 1.0.9 (adds the shipped
   `Move.lock`; `publish.sh` uses an `object_state` helper).
-- Consumed by token-deployer-ui 0.0.35 (`^0.0.10`: `deployToken`, `finalizeToken`, `toSuiTxResult`,
+- Consumed by token-deployer-ui 0.0.36 (`^0.0.11`, verified 2026-10-18 in `package.json` and the lockfile; `deployToken`, `finalizeToken`, `toSuiTxResult`,
   `listMyTokens`, `generatePackageZip`, `configureTemplateWasm`).
 - The live path is the token deployer on testnet and mainnet: user wallets publish coins, and a fee
   goes to the operator treasury.
 - `npm run e2e:localnet` passed on 2026-10-09 (including a fixed-supply coin with frozen metadata, an
   equal-constants publish, recovery and the capability-less listing).
 
-**Review date:** 2026-10-03, re-verified 2026-10-09 and 2026-10-10
+**Review date:** 2026-10-03, re-verified 2026-10-09 and 2026-10-10 · release status 2026-10-18
 **Reviewer:** Internal review
 **Severity ceiling:** High.
 
@@ -59,7 +60,8 @@ and Rust lenses, SITE, PLATFORM.
   Realised ceiling at 2026-10-09: **Info** (no open finding above Info: F11, F17–F20). At 2026-10-10 the
   only open finding is F20 (Info, ACCEPTED-RISK).
 
-**Status:** re-verified 2026-10-10, 0.0.11 work (first-pass baseline 2026-10-03).
+**Status:** re-verified 2026-10-10, 0.0.11 work (first-pass baseline 2026-10-03); 0.0.11 released 2026-10-10 and
+consumed by token-deployer-ui (2026-10-18).
 
 - The predecessor in-app code was reviewed in `token-deployer/docs/audits/token-deployer-sui-audit.md`
   (2026-07-30).
@@ -260,7 +262,7 @@ Critical / High / Medium / Low / Info / Positive.
 - `sui-token-template` 1.0.9 (policies applied in `init` since 1.0.8 `5451c0e`; `Move.lock` shipped since 1.0.9) and its audit;
 - `token-deployer/docs/audits/token-deployer-sui-audit.md` (the predecessor);
 - token-deployer-ui CLAUDE.md and `package.json` (the consumer's wiring, its zero-treasury guard, the
-  post-publish error routing, the `^0.0.10` pin).
+  post-publish error routing, the `^0.0.10` pin; `^0.0.11` since 2026-10-18).
 
 **Out of scope:** the Move template (its own audit); token-deployer-ui (its own audit); the
 `@mysten/*` internals.
@@ -278,7 +280,7 @@ Critical / High / Medium / Low / Info / Positive.
 | `npm run test:integration` (`GRPC_TESTNET=1`; reads public testnet and mainnet full nodes) | **6 passed** (the chain id and the `make_immutable` / `finalize_registration` signatures, per network) |
 | `npm pack --dry-run` | 30 files, 45.7 kB (`src`, `dist`, `CHANGELOG.md`, `README.md`, `LICENSE`, `package.json`); no tests or fixtures |
 | `npm ls` | one `@mysten/sui` (2.33.2); `typescript` 6.0.3 |
-| `npm view @meddleware/sui-token-client@0.0.10 dist.attestations` | SLSA v1 provenance present |
+| `npm view @meddleware/sui-token-client@0.0.10 dist.attestations` | SLSA v1 provenance present (2026-10-18: also present on 0.0.11, published 2026-10-10T14:54Z) |
 | Scratch probes (deleted afterwards) | `buildPackageFiles` with a module named `xmodulenamex` leaves a wrong struct name and env-variable names in the generated `scripts/publish.sh`, and a `licenseName` of `A$&B$'C` is pattern-expanded in the README (F18); a `network` of `constructor` writes `chain-id = "function Object() { [native code] }"` into `Published.toml` (F19) |
 | `npm run e2e:localnet` | **PASS 2026-10-10** against a local `sui start --with-faucet --force-regenesis` (sui 1.81.0): fixed-supply + frozen-metadata coin (no caps, registry records `Fixed` and a deleted MetadataCap); equal-constants publish; recovery; a second finalize refused by the chain without effect; listing; the generated `Move.lock`. The baseline probes of F1 and F8 were repeated as unit tests (`tests/template.test.ts`, `tests/package.test.ts`) |
 
@@ -1084,8 +1086,8 @@ framework pin": only the root pin changes, the revision equals the template's, z
 - `npm audit --audit-level=high` runs in `node-ci.yml`, which the publish `verify` job reuses; no allowlist
   is in use.
 - The weekly `live.yml` and the grouped weekly Dependabot configuration (npm and Actions) keep SHAs and
-  ranges fresh. The 2026-10-09 triage merged the minor and patch group (`fb7301b`, lockfile only; not yet
-  released).
+  ranges fresh. The 2026-10-09 triage merged the minor and patch group (`fb7301b`, lockfile only; shipped
+  with 0.0.11).
 
 ### B.2 Publish authority & CI
 
@@ -1101,7 +1103,7 @@ framework pin": only the root pin changes, the revision equals the template's, z
 | --- | --- | --- |
 | Actions pinned | Yes | SHA pins in all three workflows; actionlint by digest |
 | Least privilege | Yes | `contents: read` everywhere; `id-token: write` only on the publish job |
-| OIDC trusted publishing | Yes | 0.0.10 attestation (SLSA v1) |
+| OIDC trusted publishing | Yes | 0.0.10 and 0.0.11 attestations (SLSA v1) |
 | Tag-gated, idempotent publish | Yes | `v*` tags; tag equals `package.json`; registry check before publishing |
 | Release gate equals CI | Yes | `verify` calls `node-ci.yml` (`workflow_call`) |
 | Automated dependency updates | Yes | `.github/dependabot.yml`: weekly, grouped, npm and Actions |
@@ -1233,10 +1235,10 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
 - **Deployment readiness:** Section D is current; the one unticked item is the external review
   (maintainer-only).
 - **Chain-access layering (ADR-0001):** this is the domain client for the token template. The consumer
-  keeps only UI and wallet wiring (token-deployer-ui 0.0.35 pins `^0.0.10`); IDs are framework constants.
+  keeps only UI and wallet wiring (token-deployer-ui 0.0.36 pins `^0.0.11` since 2026-10-18; 0.0.35 pinned `^0.0.10`); IDs are framework constants.
 - **Pre-v0.2 policy:** every fix since the baseline was a patch bump that changed exported behaviour without
   shims (0.0.6, 0.0.9, 0.0.10 and 0.0.11 are marked breaking in the CHANGELOG). F11, F17-F19 and F21 shipped
-  in 0.0.11; token-deployer-ui follows with `^0.0.11` (it already declares `@mysten/sui` `^2.34.0`).
+  in 0.0.11; token-deployer-ui follows with `^0.0.11` (done, 0.0.36; it already declared `@mysten/sui` `^2.34.0`).
 - **Shared with sibling audits:**
   - access-gate-client F9 (`@mysten/sui` as a peer: fixed there, fixed here as F17 in 0.0.11);
   - walrus-client F7 (recovery that can double-charge or double-act: resolved here as F3);
@@ -1430,6 +1432,10 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
     audit F7 can move to RESOLVED citing 0.0.11 (`tests/package.test.ts` "Move.lock carries the template
     framework pin", `scripts/e2e-localnet.mjs`, F21 here).
   - Pre-save consistency checklist re-run (below).
+- 2026-10-18 — released (0.0.11), consumers bumped (token-deployer-ui 0.0.36 on `^0.0.11`). `npm view` shows
+  `@meddleware/sui-token-client` 0.0.11 as `latest`, published 2026-10-10T14:54Z, with SLSA v1 provenance
+  (`dist.attestations`); tag `v0.0.11` = `616b7ac`. It pins `@meddleware/sui-token-template` 1.0.9 exactly (also
+  released). The "Next" item of the 2026-10-10 entry is done. No Section D box waited only on the release.
 
 ## Pre-save consistency checklist (2026-10-10 re-verification)
 
