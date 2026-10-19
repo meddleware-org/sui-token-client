@@ -1436,6 +1436,8 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
   `@meddleware/sui-token-client` 0.0.11 as `latest`, published 2026-10-10T14:54Z, with SLSA v1 provenance
   (`dist.attestations`); tag `v0.0.11` = `616b7ac`. It pins `@meddleware/sui-token-template` 1.0.9 exactly (also
   released). The "Next" item of the 2026-10-10 entry is done. No Section D box waited only on the release.
+- 2026-10-19 — dependency-bot status checked (read-only): `.github/dependabot.yml` carries the `ignore` rules and the repository has no open Dependabot pull requests (`gh pr list`, 2026-10-19). Versions, findings and gates were not re-examined in this pass.
+  - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
 
 ## Pre-save consistency checklist (2026-10-10 re-verification)
 
