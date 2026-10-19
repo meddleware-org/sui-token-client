@@ -8,7 +8,7 @@
 | Version | `0.0.11` |
 | Licence | 0BSD |
 | Type | TypeScript source package (declaration-only build) |
-| Runtime targets | Node.js 24 LTS (CI), browsers (via Vite) |
+| Runtime targets | Node.js 26 (CI; engines stays >=24), browsers (via Vite) |
 | Runtime dependencies | `@mysten/move-bytecode-template` `~0.4.1`, `fflate` `^0.8.3` |
 | Peer dependency | `@mysten/sui` `^2.33.2` (the host's copy) |
 
