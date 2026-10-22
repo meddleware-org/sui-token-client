@@ -1344,8 +1344,10 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
    return type and every caller; (c) raise the default limit, which only moves the cliff and the read cost.
    Recommendation: keep (a). The caller already has the escape hatches (`maxHeldCoinTypes`, or catch and show the
    capability rows), and (b) is a consumer-contract decision for token-deployer-ui's owner.
+   *(Decided 2026-10-22: keep (a), fail closed — complete or an error. No change.)*
 5. **OQ5** S7: which `engines` value should the SDK packages declare (`^22.18.0 || >=24.12.0` as the apps do, or
    `>=24`)? Recommendation: decide once for the fleet, then add it here in a patch.
+   *(Decided 2026-10-22: `>=24`, the fleet rule for SDK/library packages (Node 24 LTS). The `engines` field is not yet in `package.json`; adding `"engines": { "node": ">=24" }` is S7 and lands in the next patch release, with the lockfile root entry, a CHANGELOG line and the package test that pins it. No code was changed in this pass.)*
 
 ## Risks
 
@@ -1438,6 +1440,7 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
   released). The "Next" item of the 2026-10-10 entry is done. No Section D box waited only on the release.
 - 2026-10-19 — dependency-bot status checked (read-only): `.github/dependabot.yml` carries the `ignore` rules and the repository has no open Dependabot pull requests (`gh pr list`, 2026-10-19). Versions, findings and gates were not re-examined in this pass.
   - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
+- 2026-10-22 (audit close-out) — OQ4 decided (keep (a): `listMyTokens` fails closed beyond `maxHeldCoinTypes`) and OQ5 decided (`engines.node` `>=24`; the field itself is S7, still to be added in the next patch release). No code changed. Counts unchanged.
 
 ## Pre-save consistency checklist (2026-10-10 re-verification)
 
