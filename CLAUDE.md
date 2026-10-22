@@ -69,4 +69,7 @@ must match each network.
 `npm run e2e:localnet` deploys real coins on a local network and checks the balance, the listing and the
 generated package; a fixed-supply, frozen-metadata coin (no caps exist, the registry's `Currency` records
 `Fixed` and a deleted metadata cap); a coin whose constants are equal (merged pool); recovery through
-`finalizeToken`; and a second finalize that the chain refuses without effect.
+`finalizeToken`; and a second finalize that the chain refuses without effect. CI runs it nightly
+(`.github/workflows/localnet.yml`, pinned `sui` 1.81.0, no secret) and `npm-publish.yml` refuses a tag while
+the latest run on main is red, missing or older than 72 h (`.github/localnet-gate.mjs`; dispatch
+"Localnet e2e" before tagging). `node-ci.yml` also runs `npm test` on Node 24 (`node24-compat`).

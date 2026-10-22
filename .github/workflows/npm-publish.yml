@@ -2,7 +2,8 @@ name: Publish (npm)
 
 # Publishes the package to npmjs on a v* tag. Publication is gated on a
 # `verify` job that runs the same workflow as CI (audit, template artefact, type-check, lint, tests,
-# declarations) on the exact tagged commit, so a broken tag never ships.
+# declarations) on the exact tagged commit, and on a `localnet-gate` job that refuses the tag while the
+# localnet e2e (localnet.yml) is red, missing or stale, so a broken tag never ships.
 # Authentication uses npm OIDC trusted publishing — no long-lived NPM_TOKEN.
 
 on:
@@ -18,9 +19,34 @@ jobs:
     name: Verify (CI checks)
     uses: ./.github/workflows/node-ci.yml
 
+  # The localnet e2e is the only test that publishes patched coins on a real chain (the bytecode verifier
+  # is the judge). It is too heavy for the tag, so the gate reads the result of the nightly / dispatched
+  # run instead: a red newest run on main, no run, or a green one older than 72 h blocks the release. To
+  # release right after a fix, dispatch "Localnet e2e" on main (or on the commit you tag: a run for the
+  # tagged commit is judged on its own) and wait for it to pass before pushing the tag.
+  localnet-gate:
+    name: Localnet e2e is not red
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+      - name: Latest localnet run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_SHA: ${{ github.sha }}
+        run: |
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow localnet.yml --branch main \
+            --status completed --limit 30 \
+            --json conclusion,headSha,url,createdAt,event | node .github/localnet-gate.mjs
+
   publish-npm:
     name: npmjs (@meddleware/sui-token-client)
-    needs: verify
+    needs: [verify, localnet-gate]
     runs-on: ubuntu-latest
     permissions:
       contents: read

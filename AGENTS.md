@@ -38,7 +38,7 @@ tests/                — vitest unit tests
 | Type-check | `npm run type-check` |
 | Lint | `npm run lint` |
 | Unit tests | `npm test` |
-| Localnet deploy | `npm run e2e:localnet` (needs a local network) |
+| Localnet deploy | `npm run e2e:localnet` (needs a local network; CI: nightly `localnet.yml`, a release gate) |
 | Regenerate the template artefact | `npm run gen:template` |
 | Check the artefact | `npm run check:template` |
 | Build `.d.ts` | `npm run build` |

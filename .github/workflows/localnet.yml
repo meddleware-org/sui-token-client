@@ -1,0 +1,105 @@
+name: Localnet e2e
+
+# The real-chain end-to-end (`npm run e2e:localnet`): publishes patched coins on a local network, finalizes
+# them, reads back the registry's recorded policies and checks the refused-finalize recovery. It is the only
+# proof that a patched module passes the on-chain bytecode verifier, so it is a release gate: a red
+# scheduled run opens (or refreshes) a GitHub issue, and the publish workflow refuses a tag while the latest
+# run is red, missing or too old (.github/localnet-gate.mjs). Nothing here signs on a public chain: the
+# `sui` binary is pinned, the local network is thrown away after the job, and the script itself refuses a
+# public chain identifier. Needs no secret and no WAL.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *' # 03:17 UTC nightly
+
+permissions:
+  contents: read
+
+jobs:
+  localnet:
+    name: sui-token-client localnet e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+
+      - name: Install sui CLI (suiup)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -fsSLo /tmp/suiup.tgz "https://github.com/MystenLabs/suiup/releases/download/v0.0.14/suiup-Linux-musl-x86_64.tar.gz"
+          echo "c0b9fea95d52c4c5855478c3ee56e58e446614f32300dbd41fcc637a2e09878a  /tmp/suiup.tgz" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin" && tar -xzf /tmp/suiup.tgz -C "$HOME/.local/bin" suiup
+          "$HOME/.local/bin/suiup" install sui@testnet-v1.81.0 --yes
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # The release asset suiup downloads is not checksum-verified by suiup itself: pin the binary (the
+          # same one the other repos' CI pins).
+          "$HOME/.local/bin/sui" --version
+          echo "c86c0481a44174dfa17af89e71292d6fba5df267c66722ae6797e8793a22f7f1  $HOME/.local/bin/sui" | sha256sum -c -
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start the local network (gRPC :9000, faucet :9123)
+        run: |
+          mkdir -p "$RUNNER_TEMP/localnet"
+          cd "$RUNNER_TEMP/localnet"
+          RUST_LOG=off nohup "$HOME/.local/bin/sui" start --with-faucet --force-regenesis > sui.log 2>&1 &
+          for _ in $(seq 1 90); do
+            if curl -fsS -o /dev/null http://127.0.0.1:9123/ && (echo > /dev/tcp/127.0.0.1/9000) 2>/dev/null; then
+              echo "local network is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::the local network did not come up in 180 s"
+          tail -n 50 sui.log || true
+          exit 1
+
+      - name: Run the localnet e2e
+        run: npm run e2e:localnet
+
+      - name: Local network log (on failure)
+        if: failure()
+        run: tail -n 80 "$RUNNER_TEMP/localnet/sui.log" || true
+
+  # A red nightly used to go unnoticed in the sibling repos. On a scheduled run, open one issue per red
+  # streak and comment on it each further night; close it when the run passes again. A manual
+  # (workflow_dispatch) run is watched by whoever started it.
+  alert:
+    name: Alert on a red nightly
+    needs: localnet
+    if: ${{ always() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RESULT: ${{ needs.localnet.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      TITLE: Nightly localnet e2e is red
+    steps:
+      - name: Open, refresh or close the issue
+        run: |
+          # A cancelled run says nothing about the code; leave the issue as it is.
+          case "$RESULT" in success|failure) ;; *) echo "result '$RESULT': nothing to do"; exit 0 ;; esac
+          OPEN=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty")
+          if [ "$RESULT" = "success" ]; then
+            if [ -n "$OPEN" ]; then
+              gh issue close "$OPEN" --comment "The nightly localnet e2e passed again: $RUN_URL"
+            fi
+          elif [ -n "$OPEN" ]; then
+            gh issue comment "$OPEN" --body "Still $RESULT: $RUN_URL"
+          else
+            gh issue create --title "$TITLE" --body "The scheduled localnet e2e finished with: $RESULT.
+
+          Run: $RUN_URL
+
+          The publish workflow refuses a release tag while the latest run is red (.github/localnet-gate.mjs). Fix the failure, then dispatch \"Localnet e2e\" on main."
+          fi

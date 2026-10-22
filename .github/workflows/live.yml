@@ -2,7 +2,7 @@ name: Live checks
 
 # Read-only checks against public testnet (no secrets): the ABI of the framework calls the transactions use
 # and the chain identifier handling. Weekly, because a framework change shows up here before it breaks a
-# user. The localnet end-to-end (`npm run e2e:localnet`, needs `sui start`) is run by hand before a release.
+# user. The localnet end-to-end (`npm run e2e:localnet`) is its own workflow, `localnet.yml`, and a release gate.
 
 on:
   schedule:
