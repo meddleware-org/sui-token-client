@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.12] - 2026-10-22
+
+### Added
+
+- `engines.node` `>=24` (the fleet rule for SDK packages, Node 24 LTS); CI runs the unit tests on Node 24 (`node24-compat`) and the package test pins the field
+
 ## [0.0.11] - 2026-10-10
 
 ### Added

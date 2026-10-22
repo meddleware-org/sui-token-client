@@ -113,9 +113,10 @@ policies (F4). No first-party package IDs.
 
 **OPS front matter (scoped):** `npm run e2e:localnet`. It uses a localnet faucet and an ephemeral
 in-process `Ed25519Keypair`, never a stored key. It refuses a public network (chain-identifier check)
-unless `E2E_ALLOW_PUBLIC=1` (F10). It is not run in CI; it is run by hand before each release (last run
-2026-10-09: PASS). CLI: none is called by the script; `sui start` is run by the operator (the installed
-`sui` is 1.81.0, equal to the template's recorded toolchain).
+unless `E2E_ALLOW_PUBLIC=1` (F10). Since 2026-10-22 it runs nightly in CI (`.github/workflows/localnet.yml`,
+`sui` 1.81.0 pinned by SHA-256, no secret) and gates a release (F9; last run 2026-10-22: PASS). CLI: none is
+called by the script; the workflow (or the operator) starts `sui start --with-faucet --force-regenesis`
+(the installed `sui` is 1.81.0, equal to the template's recorded toolchain).
 
 **Location:** `sui-token-client/docs/audit/sui-token-client-audit.md`. This is a new directory in the
 repo.
@@ -157,7 +158,7 @@ generated artefact and template files (`src/template/artifact.ts`, `files.ts`) a
 
 **Measured (2026-10-10, 0.0.11):**
 
-- 148/148 unit tests (11 files); coverage 97.92% statements, 90.97% branches, 100% functions, 99.17% lines;
+- 156/156 unit tests (12 files, 2026-10-22; 148/148 in 11 files on 2026-10-10); coverage (2026-10-10) 97.92% statements, 90.97% branches, 100% functions, 99.17% lines;
 - tsc, eslint, `npm audit --audit-level=high` (0), `npm ls --all` and `check:template` (`@meddleware/sui-token-template@1.0.9`) clean;
 - the live read-only suite passed 6/6 on 2026-10-09 (weekly in CI); `e2e:localnet` PASS (2026-10-10, sui 1.81.0, including the refused second finalize);
 - the build emits declarations; pack is 30 files.
@@ -174,9 +175,9 @@ generated artefact and template files (`src/template/artifact.ts`, `files.ts`) a
      `Fixed` and a deleted MetadataCap; proven on localnet.
 2. **The Info items are RESOLVED too:** F5 (capability-less coins are listed, 0.0.10), F6 (licence
    fields validated), F7 (fee recipient validated), F8 (one-pass doc substitution), F10 (e2e network
-   guard), F12 (recovery-path tests). **F9** (CI) is MITIGATED: the release gate equals CI, the build
-   and tarball are checked, and a weekly workflow runs the live read-only suite; the localnet e2e is
-   still run by hand before a release.
+   guard), F12 (recovery-path tests). **F9** (CI) is RESOLVED (2026-10-22): the release gate equals CI,
+   the build and tarball are checked, a weekly workflow runs the live read-only suite, and a nightly
+   workflow runs the localnet e2e, which the publish workflow requires to be green.
 3. **New since the baseline:** **F16** (RESOLVED): the patcher merges equal constant-pool entries,
    which the bytecode verifier rejects. The Info items found at the 2026-10-09 re-verification are
    RESOLVED in 0.0.11: **F11** (docs described the freeze design), **F17** (`@mysten/sui` is now a peer:
@@ -272,7 +273,7 @@ Critical / High / Medium / Low / Info / Positive.
 | Command | Result |
 | --- | --- |
 | `npm ci` | clean |
-| `npx vitest run` | **148 passed** (11 files) |
+| `npx vitest run` | **156 passed** (12 files; 2026-10-22) |
 | `npx vitest run --coverage` (coverage plugin installed `--no-save`, then removed) | 97.92% statements / 90.97% branches / 100% functions / 99.17% lines. Branch gaps: `deploy.ts` (66.66%: the `cause instanceof Error` fallbacks and optional `onStep` calls), `results.ts` (86.11%), `patch.ts` (88%) |
 | `npx tsc --noEmit` / `npx eslint .` | clean / clean |
 | `npm audit --audit-level=high` | 0 vulnerabilities |
@@ -634,7 +635,7 @@ and template defaults in every text field.
 
 ### F9 — CI: live tests and e2e never run; `--if-present`
 
-**Severity:** Info   **Disposition:** MITIGATED (0.0.7, `bd58328`; the localnet e2e is run by hand before each release)
+**Severity:** Info   **Disposition:** RESOLVED (0.0.7, `bd58328`: live suite, build, tarball, no `--if-present`; 2026-10-22, commit pending: the localnet e2e is a nightly CI job and a release gate)
 **Where (at the baseline):** `.github/workflows/node-ci.yml`, `npm-publish.yml`.
 
 **Positives first:**
@@ -661,10 +662,19 @@ and template defaults in every text field.
   tests, declarations, pack. Publish itself pins `npm@11.20.0`, requires tag equal to version and skips an
   already-published version (idempotent).
 - Dependabot (`.github/dependabot.yml`, `3d23cb5`): weekly, grouped, npm and GitHub Actions.
-- **Residual (why MITIGATED, not RESOLVED):** `e2e:localnet`, the only proof that a patched module
-  verifies on-chain and that finalize works, is not a CI job; `live.yml` says it is run by hand before a
-  release (it needs a `sui` binary and `sui start`). The maintainer ran it on 2026-10-09 (PASS). A CI
-  localnet job would need a pinned `sui` installer (OPS lens) and is a maintainer decision.
+- **Residual (closed 2026-10-22):** `e2e:localnet`, the only proof that a patched module verifies
+  on-chain and that finalize works, was not a CI job. It is now `.github/workflows/localnet.yml`: nightly
+  (03:17 UTC) and on `workflow_dispatch`, `permissions: contents: read`, SHA-pinned Actions, the `sui` CLI
+  installed through the pinned `suiup` (SHA-256 checked) at 1.81.0 with the binary's SHA-256 checked too (the
+  pins the sibling repos use), `sui start --with-faucet --force-regenesis` on the runner, no secret and no
+  WAL (the e2e uses the local faucet and an ephemeral key; the script refuses a public chain, F10). A red
+  scheduled run opens or refreshes one issue (`alert` job). `npm-publish.yml` gained a `localnet-gate` job
+  (needed by `publish-npm`) that runs `.github/localnet-gate.mjs` over `gh run list`: a red newest run on
+  main, no run, or a green one older than 72 h blocks the tag, and a run for the tagged commit is judged on
+  its own (the walrus-client gate, same semantics; `tests/localnet-gate.test.ts`, 7 tests). `node-ci.yml`
+  gained `node24-compat` (S7). Evidence: dispatched run 39783577436 on `main` at `599b277` passed
+  (`e2e-localnet: OK`, sui 1.81.0) and the gate script returned "green for the tagged commit" on the real
+  run list; actionlint clean.
 
 **Baseline recommendation (2026-10-03, partly taken):**
 
@@ -1112,7 +1122,7 @@ framework pin": only the root pin changes, the revision equals the template's, z
 | Test-only modes | N/A | no mock or test mode in `src` |
 | Generated-artefact drift check | Yes | `check:template` in CI and publish |
 | Live drift | Yes | weekly `live.yml`, `workflow_dispatch` |
-| Localnet e2e | No (by hand) | F9 (MITIGATED) |
+| Localnet e2e | Yes | nightly `localnet.yml` (sha-pinned Actions, pinned `sui` binary, no secret, no signing on a public chain); `localnet-gate` blocks a tag while it is red, missing or older than 72 h; an issue is opened on a red night — F9 |
 
 ### B.SC-1 ID-constant trace
 
@@ -1167,16 +1177,16 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
 
 | Layer | Files | In CI? | Gate |
 | --- | --- | --- | --- |
-| Unit | 11 files, 148 tests | yes (`node-ci.yml`, and the publish `verify`) | `npm test` |
+| Unit | 12 files, 156 tests | yes (`node-ci.yml`, on Node 26 and, as `node24-compat`, on Node 24; and the publish `verify`) | `npm test` |
 | Live read (ABI drift + chain ids, testnet and mainnet) | `tests/integration/abi-drift.integration.test.ts` (6 tests) | yes, weekly (`live.yml`) | `GRPC_TESTNET=1` (`npm run test:integration`) |
-| Localnet e2e (deploy, registry state of fixed/frozen coins, equal-constants publish, refused-finalize recovery, refused second finalize, listing, balance, package) | `scripts/e2e-localnet.mjs` | **no** (run by hand before a release; PASS 2026-10-10) | needs `sui start --with-faucet`; `E2E_ALLOW_PUBLIC=1` overrides the public-network guard |
+| Localnet e2e (deploy, registry state of fixed/frozen coins, equal-constants publish, refused-finalize recovery, refused second finalize, listing, balance, package) | `scripts/e2e-localnet.mjs` | yes, nightly (`localnet.yml`; PASS 2026-10-22, run 39783577436) and as a release gate (`localnet-gate` in `npm-publish.yml`) | needs `sui start --with-faucet` (the workflow starts it with the pinned 1.81.0); `E2E_ALLOW_PUBLIC=1` overrides the public-network guard |
 | Real-chain deploy (testnet / mainnet) | token-deployer-ui `e2e:*` | manual, in the consumer | the consumer's own gates |
 
 ### C.2 Hermetic vs. live paths
 
 | Path | Hermetic? | Deferred to | Tracking |
 | --- | --- | --- | --- |
-| Patched module passes on-chain bytecode verification | no | localnet e2e (manual before a release; PASS 2026-10-10) | F9, F16 |
+| Patched module passes on-chain bytecode verification | no | localnet e2e (nightly CI and a release gate; PASS 2026-10-22) | F9, F16 |
 | Finalize semantics (registration, transfers) and the registry's recorded policies | builder shape only | localnet e2e | F3, F4 |
 | A repeated finalize is rejected without effect | no (needs a chain) | localnet e2e (PASS 2026-10-10: the chain reports the consumed Currency as not found; balance and registry state unchanged) | F3, S5 |
 | Framework ABI | arity table | live drift (weekly) | F9 |
@@ -1199,7 +1209,7 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
 
 - [x] exact-type parsing; typed post-publish errors; exact-split fee — F14, F15
 - [x] finalize retry idempotent — F3 (0.0.9: finalize mints nothing)
-- [x] live drift in CI (weekly `live.yml`, 6/6 on 2026-10-09); localnet e2e run by hand before a release (PASS 2026-10-10) — F9 (MITIGATED; a CI localnet job is a maintainer decision)
+- [x] live drift in CI (weekly `live.yml`, 6/6 on 2026-10-09); localnet e2e in CI nightly and as a release gate (PASS 2026-10-22, run 39783577436; commit pending) — F9 (RESOLVED)
 - [x] `npm pack` contents verified (30 files); B.TS-2 inventory complete — B.TS-1, B.TS-2
 - [x] audit gate in CI and publish (`npm audit --audit-level=high`, 0) and `npm ci` — B.TS-3
 - [x] consumed ids: system ids only, chain ids drift-tested; ABI-drift test green — B.SC-1, A12
@@ -1321,9 +1331,9 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
   change (F3, C.2; PASS 2026-10-10).
 - **S6** *Implemented in 0.0.11:* `transactions.ts` compares addresses with `normalizeSuiAddress`, and the `!`
   assertions in `tokens.ts` carry an inline reason (A16, A27).
-- **S7** SHOULD add `engines` to `package.json`, matching the workspace's Node 24 LTS decision (F11). Not done:
-  the fleet's `engines` strings differ (`^22.18.0 || >=24.12.0` in the apps; none in the sibling SDKs), so the
-  value is a fleet decision, not a local one (OQ5).
+- **S7** *Implemented in 0.0.12 (2026-10-22, commit pending):* `package.json` declares `"engines": { "node":
+  ">=24" }` (the lockfile root entry carries it too), CI runs the unit tests on Node 24 (`node24-compat`), and
+  `tests/package.test.ts` ("package metadata (S7)") pins both fields (OQ5 decided).
 
 ## Open questions (`OQ#`)
 
@@ -1347,13 +1357,13 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
    *(Decided 2026-10-22: keep (a), fail closed — complete or an error. No change.)*
 5. **OQ5** S7: which `engines` value should the SDK packages declare (`^22.18.0 || >=24.12.0` as the apps do, or
    `>=24`)? Recommendation: decide once for the fleet, then add it here in a patch.
-   *(Decided 2026-10-22: `>=24`, the fleet rule for SDK/library packages (Node 24 LTS). The `engines` field is not yet in `package.json`; adding `"engines": { "node": ">=24" }` is S7 and lands in the next patch release, with the lockfile root entry, a CHANGELOG line and the package test that pins it. No code was changed in this pass.)*
+   *(Decided 2026-10-22: `>=24`, the fleet rule for SDK/library packages (Node 24 LTS). Implemented the same day as S7 in 0.0.12: the field, the lockfile root entry, a CHANGELOG line and the package test that pins it.)*
 
 ## Risks
 
 - **Permanent outcomes:** symbol, name, decimals and package identity cannot be fixed after publish.
   Patcher correctness (F1, F16), the result-versus-policy check and the app's preview are the safeguards;
-  the localnet e2e is the only proof that a patched module verifies on-chain, and it is not a CI job (F9).
+  the localnet e2e is the only proof that a patched module verifies on-chain; it runs nightly in CI and a red run blocks the release (F9).
 - **Wallet / executor behaviour:** recovery depends on executors reporting post-submission errors
   distinguishably (F3); a mistaken classification cannot now duplicate a mint, but it can misreport whether
   the setup is complete.
@@ -1441,6 +1451,7 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
 - 2026-10-19 — dependency-bot status checked (read-only): `.github/dependabot.yml` carries the `ignore` rules and the repository has no open Dependabot pull requests (`gh pr list`, 2026-10-19). Versions, findings and gates were not re-examined in this pass.
   - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
 - 2026-10-22 (audit close-out) — OQ4 decided (keep (a): `listMyTokens` fails closed beyond `maxHeldCoinTypes`) and OQ5 decided (`engines.node` `>=24`; the field itself is S7, still to be added in the next patch release). No code changed. Counts unchanged.
+- 2026-10-22 (fix wave, 0.0.12; local commits, 0.0.12 not released) — **F9 RESOLVED:** `.github/workflows/localnet.yml` (nightly localnet e2e with the pinned `sui` 1.81.0, an alert issue on a red night), a `localnet-gate` job in `npm-publish.yml` with `.github/localnet-gate.mjs` and `tests/localnet-gate.test.ts`, and `node24-compat` in `node-ci.yml` (CI commit `599b277`, pushed). Proof: dispatched run 39783577436 on main passed (`e2e-localnet: OK`), Node CI 39783566363 green including `node24-compat`, the gate script returned green on the real run list, actionlint clean. **S7 implemented:** `engines.node` `>=24` (package and lockfile root), package test, version 0.0.12 with a CHANGELOG entry (commit pending; not pushed, the orchestrator releases). Measured: vitest 156/156 (12 files), tsc, eslint clean. Section D: the F9 box is ticked as RESOLVED. No other disposition changed; open: F20 (ACCEPTED-RISK) and the maintainer-only external review.
 
 ## Pre-save consistency checklist (2026-10-10 re-verification)
 
@@ -1451,7 +1462,7 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
   lenses named.
 - [x] Closing four-part structure in order.
 - [x] Open questions stay listed; decisions are recorded as `(Decided …)` notes and in the log.
-- [x] Section D ↔ dispositions — the only unticked item is the maintainer-only external review.
+- [x] Section D ↔ dispositions — the only unticked item is the maintainer-only external review (F9 ticked as RESOLVED 2026-10-22).
 - [x] Executive summary matches the dispositions and the ceiling (Info; F20 the one open finding).
 - [x] Counts and versions re-measured 2026-10-10 (tests, coverage, pack, template); provenance as of 2026-10-09.
 - [x] Re-verification log entry added.

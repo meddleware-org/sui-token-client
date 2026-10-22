@@ -5,7 +5,7 @@
 | Field | Value |
 | --- | --- |
 | npm name | `@meddleware/sui-token-client` |
-| Version | `0.0.11` |
+| Version | `0.0.12` |
 | Licence | 0BSD |
 | Type | TypeScript source package (declaration-only build) |
 | Runtime targets | Node.js 26 (CI; engines stays >=24), browsers (via Vite) |

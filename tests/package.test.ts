@@ -345,3 +345,13 @@ describe('Published.toml chain ids are looked up by own key (F19)', () => {
     expect(buildPackageFiles({ config: baseConfig, result: result('mainnet') })['Published.toml']).toContain('chain-id = "35834a8a"')
   })
 })
+
+describe('package metadata (S7)', () => {
+  it('declares the minimum supported Node, matching the fleet rule for SDK packages', async () => {
+    const { readFileSync } = await import('node:fs')
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { engines?: { node?: string } }
+    expect(pkg.engines).toEqual({ node: '>=24' })
+    const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8')) as { packages: Record<string, { engines?: { node?: string } }> }
+    expect(lock.packages['']?.engines).toEqual({ node: '>=24' })
+  })
+})
