@@ -1,4 +1,4 @@
-// Shared types for deploying a coin from @meddleware/sui-token-template.
+// Shared types for deploying a coin from @meddleware/token-issuance-template-sui.
 
 /** A Sui network a token can be deployed to. */
 export type TokenNetwork = 'testnet' | 'mainnet' | 'localnet'

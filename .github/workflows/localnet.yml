@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   localnet:
-    name: sui-token-client localnet e2e
+    name: token-issuance-client localnet e2e
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

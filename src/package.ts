@@ -1,4 +1,4 @@
-// @meddleware/sui-token-client/package — the downloadable source package for a token. Mirrors the
+// @meddleware/token-issuance-client/package — the downloadable source package for a token. Mirrors the
 // template's CLI generator (03_create_token.sh), so the zip matches what the CLI produces and the
 // on-chain bytecode. Text comes from the pinned template package via scripts/gen-template.mjs.
 //
@@ -242,7 +242,7 @@ function renderDeployments(cfg: TokenConfig, result?: PublishResult): string {
   // Append extra data not represented in the table (coin type, digest)
   const note = [
     '',
-    `<!-- Auto-filled by the Token Deployer on ${new Date().toISOString()} (${result.network}) -->`,
+    `<!-- Auto-filled by the Token Issuance on ${new Date().toISOString()} (${result.network}) -->`,
     `<!-- Coin type: ${result.coinType} -->`,
     `<!-- Publish digest: ${result.digest} -->`,
     '',

@@ -1,8 +1,8 @@
-# CLAUDE.md — @meddleware/sui-token-client
+# CLAUDE.md — @meddleware/token-issuance-client
 
 ## What this package is
 
-The client for [`@meddleware/sui-token-template`](https://github.com/meddleware-org/sui-token-template):
+The client for [`@meddleware/token-issuance-template-sui`](https://github.com/meddleware-org/token-issuance-template-sui):
 everything an app needs to deploy a Sui coin from the template without the Sui CLI — the Move and
 metadata rules, the compiled template module and its patcher, the publish and finalize transactions,
 publish-result parsing, owned-token discovery and the downloadable source package. Apps (the token
@@ -15,7 +15,7 @@ deployer) keep only their UI, wallet wiring and form messages.
   `./template` from `.`.
 - **The template is pinned and generated.** `src/template/artifact.ts` (module + build info) and
   `src/template/files.ts` come only from `scripts/gen-template.mjs`, reading the exact
-  `@meddleware/sui-token-template` devDependency. The generator checks the bytecode and source hashes
+  `@meddleware/token-issuance-template-sui` devDependency. The generator checks the bytecode and source hashes
   against the package's `build-info.json`, a byte-exact decode/encode round trip, and that each
   identifier and default constant (text, decimals, `INITIAL_SUPPLY`, `FIXED_SUPPLY`, `FROZEN_METADATA`)
   exists once. CI runs `check:template`.

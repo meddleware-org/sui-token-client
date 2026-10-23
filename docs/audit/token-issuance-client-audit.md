@@ -1,8 +1,8 @@
-# Security Audit — `sui-token-client`
+# Security Audit — `token-issuance-client`
 
 **Classification:** Internal security review (re-verified 2026-10-10 — awaiting external review)
-**Project:** sui-token-client (`@meddleware/sui-token-client`) — the client for
-`@meddleware/sui-token-template`. It covers:
+**Project:** token-issuance-client (`@meddleware/token-issuance-client`) — the client for
+`@meddleware/token-issuance-template-sui`. It covers:
 
 - the Move and metadata rules;
 - the generated template artefact and its bytecode patcher;
@@ -12,7 +12,7 @@
 - owned-token discovery;
 - the downloadable source-package generator.
 
-It is extracted from token-deployer-ui (workspace B7, 2026-10-02).
+It is extracted from token-issuance-ui (workspace B7, 2026-10-02).
 
 **Project type:** TS SDK (npm package; TypeScript source plus a declaration build) + a localnet e2e
 script
@@ -24,25 +24,25 @@ script
 - AUDIT_TEMPLATE_OPS.md (2026-10-08) — scoped to `scripts/e2e-localnet.mjs`, which signs on a local
   network only
 
-Not triggered: SUI (no Move here — the template is `sui-token-template`'s audit), SEAL, WALRUS (icon
-URLs are text; uploads live in token-deployer-ui), VUE, AUTH, IMG (no image), PROXY, WORKERS, the Go
+Not triggered: SUI (no Move here — the template is `token-issuance-template-sui`'s audit), SEAL, WALRUS (icon
+URLs are text; uploads live in token-issuance-ui), VUE, AUTH, IMG (no image), PROXY, WORKERS, the Go
 and Rust lenses, SITE, PLATFORM.
 
 **Deployment status:**
 
-- npm `@meddleware/sui-token-client` **0.0.11** (`latest`, published 2026-10-10T14:54Z), published from tag
+- npm `@meddleware/token-issuance-client` **0.0.11** (`latest`, published 2026-10-10T14:54Z), published from tag
   `v0.0.11` = `616b7ac` (code commit `994b951`, plus the Dependabot lockfile-only bump `fb7301b` since 0.0.10),
   with an SLSA v1 provenance attestation (`dist.attestations` checked 2026-10-18). 0.0.10 (tag `v0.0.10` =
   `e70a5ab`, 2026-10-09) was the version of the 2026-10-09 pass.
   Baseline of this audit: 0.0.5 at `6f09bb2`, 2026-10-02.
 - Releases since the baseline: 0.0.6 `6d3b7c2`, 0.0.7 `bd58328`, 0.0.8 `75dd34a` (template 1.0.7
   regeneration), 0.0.9 `677330f` and 0.0.10 `e70a5ab` (both 2026-10-09; template 1.0.8).
-- Pins `@meddleware/sui-token-template` **1.0.9** exactly in 0.0.11 (1.0.8 in 0.0.10), so every coin it
+- Pins `@meddleware/token-issuance-template-sui` **1.0.9** exactly in 0.0.11 (1.0.8 in 0.0.10), so every coin it
   publishes applies its supply and metadata policies in its own `init` (closes F4). 1.0.9 (adds the shipped
   `Move.lock`; `publish.sh` uses an `object_state` helper).
-- Consumed by token-deployer-ui 0.0.36 (`^0.0.11`, verified 2026-10-18 in `package.json` and the lockfile; `deployToken`, `finalizeToken`, `toSuiTxResult`,
+- Consumed by token-issuance-ui 0.0.36 (`^0.0.11`, verified 2026-10-18 in `package.json` and the lockfile; `deployToken`, `finalizeToken`, `toSuiTxResult`,
   `listMyTokens`, `generatePackageZip`, `configureTemplateWasm`).
-- The live path is the token deployer on testnet and mainnet: user wallets publish coins, and a fee
+- The live path is the token issuance on testnet and mainnet: user wallets publish coins, and a fee
   goes to the operator treasury.
 - `npm run e2e:localnet` passed on 2026-10-09 (including a fixed-supply coin with frozen metadata, an
   equal-constants publish, recovery and the capability-less listing).
@@ -61,9 +61,9 @@ and Rust lenses, SITE, PLATFORM.
   only open finding is F20 (Info, ACCEPTED-RISK).
 
 **Status:** re-verified 2026-10-10, 0.0.11 work (first-pass baseline 2026-10-03); 0.0.11 released 2026-10-10 and
-consumed by token-deployer-ui (2026-10-18).
+consumed by token-issuance-ui (2026-10-18).
 
-- The predecessor in-app code was reviewed in `token-deployer/docs/audits/token-deployer-sui-audit.md`
+- The predecessor in-app code was reviewed in `token-issuance/docs/audits/token-deployer-sui-audit.md`
   (2026-07-30).
 - Its findings 4 (icon URL scheme) and 5 (silent degradation of `extractPublishResult`) apply to code
   that now lives here. Both are resolved, as re-verified in F14.
@@ -91,7 +91,7 @@ condition), built by `prepublishOnly`. Entry points:
 | `@mysten/move-bytecode-template` | `~0.4.1` | 0.4.1 (latest) |
 | `fflate` | `^0.8.3` | 0.8.3 |
 
-**Template pin:** devDependency `@meddleware/sui-token-template` **1.0.9**, exact, with provenance
+**Template pin:** devDependency `@meddleware/token-issuance-template-sui` **1.0.9**, exact, with provenance
 attested (1.0.6 at the baseline, 1.0.8 in 0.0.10). The generated artefact records:
 
 | Field | Value |
@@ -118,17 +118,17 @@ unless `E2E_ALLOW_PUBLIC=1` (F10). Since 2026-10-22 it runs nightly in CI (`.git
 called by the script; the workflow (or the operator) starts `sui start --with-faucet --force-regenesis`
 (the installed `sui` is 1.81.0, equal to the template's recorded toolchain).
 
-**Location:** `sui-token-client/docs/audit/sui-token-client-audit.md`. This is a new directory in the
+**Location:** `token-issuance-client/docs/audit/token-issuance-client-audit.md`. This is a new directory in the
 repo.
 
-> **Access note:** `meddleware-org/sui-token-client` is not in this session's attached repository
+> **Access note:** `meddleware-org/token-issuance-client` is not in this session's attached repository
 > list. It is public, so it was cloned read-only. Nothing was pushed.
 
 ---
 
 ## Executive summary
 
-`@meddleware/sui-token-client` is about 1,670 lines across 11 hand-written modules (0.0.11). The
+`@meddleware/token-issuance-client` is about 1,670 lines across 11 hand-written modules (0.0.11). The
 generated artefact and template files (`src/template/artifact.ts`, `files.ts`) are on top of that.
 
 **What holds (verified):**
@@ -159,7 +159,7 @@ generated artefact and template files (`src/template/artifact.ts`, `files.ts`) a
 **Measured (2026-10-10, 0.0.11):**
 
 - 156/156 unit tests (12 files, 2026-10-22; 148/148 in 11 files on 2026-10-10); coverage (2026-10-10) 97.92% statements, 90.97% branches, 100% functions, 99.17% lines;
-- tsc, eslint, `npm audit --audit-level=high` (0), `npm ls --all` and `check:template` (`@meddleware/sui-token-template@1.0.9`) clean;
+- tsc, eslint, `npm audit --audit-level=high` (0), `npm ls --all` and `check:template` (`@meddleware/token-issuance-template-sui@1.0.9`) clean;
 - the live read-only suite passed 6/6 on 2026-10-09 (weekly in CI); `e2e:localnet` PASS (2026-10-10, sui 1.81.0, including the refused second finalize);
 - the build emits declarations; pack is 30 files.
 
@@ -204,10 +204,10 @@ generated artefact and template files (`src/template/artifact.ts`, `files.ts`) a
 | Actor / source | Controls | Can do | Bounded by |
 | --- | --- | --- | --- |
 | Deployer (end user) | the `TokenConfig` (names, text, decimals, supply, policies, recipient, licence) | Choose any token; sign two transactions | `assertTokenConfig`; the patcher's pristine-pool resolution, placeholder refusal and decoded post-condition (F1); exact-split fee; a preview in the app |
-| Consuming app (token-deployer-ui) | fee amount, fee recipient (treasury), gas budget, network, executor, wasm source | Route the fee; sign through the wallet | App's build-time zero-treasury guard (token-deployer-ui `vite.config.ts`). The library itself refuses a zero, short or malformed fee recipient when a fee is charged (F7, 0.0.7). |
+| Consuming app (token-issuance-ui) | fee amount, fee recipient (treasury), gas budget, network, executor, wasm source | Route the fee; sign through the wallet | App's build-time zero-treasury guard (token-issuance-ui `vite.config.ts`). The library itself refuses a zero, short or malformed fee recipient when a fee is charged (F7, 0.0.7). |
 | Wallet / executor | signs and executes; reports effects | Misreport effects; throw after submission | `assertSuccess` (explicit success only); exact-type parsing; typed post-publish errors; `assertResultMatchesPolicy` after the publish; a repeated finalize is rejected without effect (F3) |
 | Full node (behind the executor) | effects, object types, owned objects | Lie about effects or listings | Exact struct-tag matching; the coin must belong to the published package; bounded paging; a failed lookup throws (F5, F20) |
-| `@meddleware/sui-token-template` npm package | the bytecode and source the client ships | Change what every deploy publishes | Exact pin with provenance; hashes vs `build-info.json`; round trip; identifier and default checks; `check:template` in CI |
+| `@meddleware/token-issuance-template-sui` npm package | the bytecode and source the client ships | Change what every deploy publishes | Exact pin with provenance; hashes vs `build-info.json`; round trip; identifier and default checks; `check:template` in CI |
 | `@mysten/move-bytecode-template` (wasm) | module (de)serialisation | Mis-encode the module | Byte-exact round trip checked at generation; the patched output is decoded again and checked (F1); equal constants are merged (F16); the module is verified on-chain at publish |
 | Recipient (e.g. a DAO or multisig) | receives the initial supply, the TreasuryCap and MetadataCap that exist, and the UpgradeCap of an upgradeable package | Expects full control | The UpgradeCap goes to the recipient (F2, 0.0.6) |
 | Token holders / market | read the coin's on-chain state | Judge supply and metadata mutability | `init` records a fixed supply and a deleted MetadataCap in the coin registry (F4, template 1.0.8 / client 0.0.9) |
@@ -260,12 +260,12 @@ Critical / High / Medium / Low / Info / Positive.
 
 - the pinned Sui framework source at `83f11dc8…` (`coin_registry.move`: `make_supply_fixed`,
   `delete_metadata_cap`, `SupplyState`, `MetadataCapState`), from the local Move git cache;
-- `sui-token-template` 1.0.9 (policies applied in `init` since 1.0.8 `5451c0e`; `Move.lock` shipped since 1.0.9) and its audit;
-- `token-deployer/docs/audits/token-deployer-sui-audit.md` (the predecessor);
-- token-deployer-ui CLAUDE.md and `package.json` (the consumer's wiring, its zero-treasury guard, the
+- `token-issuance-template-sui` 1.0.9 (policies applied in `init` since 1.0.8 `5451c0e`; `Move.lock` shipped since 1.0.9) and its audit;
+- `token-issuance/docs/audits/token-deployer-sui-audit.md` (the predecessor);
+- token-issuance-ui CLAUDE.md and `package.json` (the consumer's wiring, its zero-treasury guard, the
   post-publish error routing, the `^0.0.10` pin; `^0.0.11` since 2026-10-18).
 
-**Out of scope:** the Move template (its own audit); token-deployer-ui (its own audit); the
+**Out of scope:** the Move template (its own audit); token-issuance-ui (its own audit); the
 `@mysten/*` internals.
 
 **Environment / commands (2026-10-10, 0.0.11 working tree; the 2026-10-09 figures were Node 24.13.0, the baseline ran on Node 22.22.2):**
@@ -277,11 +277,11 @@ Critical / High / Medium / Low / Info / Positive.
 | `npx vitest run --coverage` (coverage plugin installed `--no-save`, then removed) | 97.92% statements / 90.97% branches / 100% functions / 99.17% lines. Branch gaps: `deploy.ts` (66.66%: the `cause instanceof Error` fallbacks and optional `onStep` calls), `results.ts` (86.11%), `patch.ts` (88%) |
 | `npx tsc --noEmit` / `npx eslint .` | clean / clean |
 | `npm audit --audit-level=high` | 0 vulnerabilities |
-| `npm run check:template` | `src/template matches @meddleware/sui-token-template@1.0.9` |
+| `npm run check:template` | `src/template matches @meddleware/token-issuance-template-sui@1.0.9` |
 | `npm run test:integration` (`GRPC_TESTNET=1`; reads public testnet and mainnet full nodes) | **6 passed** (the chain id and the `make_immutable` / `finalize_registration` signatures, per network) |
 | `npm pack --dry-run` | 30 files, 45.7 kB (`src`, `dist`, `CHANGELOG.md`, `README.md`, `LICENSE`, `package.json`); no tests or fixtures |
 | `npm ls` | one `@mysten/sui` (2.33.2); `typescript` 6.0.3 |
-| `npm view @meddleware/sui-token-client@0.0.10 dist.attestations` | SLSA v1 provenance present (2026-10-18: also present on 0.0.11, published 2026-10-10T14:54Z) |
+| `npm view @meddleware/token-issuance-client@0.0.10 dist.attestations` | SLSA v1 provenance present (2026-10-18: also present on 0.0.11, published 2026-10-10T14:54Z) |
 | Scratch probes (deleted afterwards) | `buildPackageFiles` with a module named `xmodulenamex` leaves a wrong struct name and env-variable names in the generated `scripts/publish.sh`, and a `licenseName` of `A$&B$'C` is pattern-expanded in the README (F18); a `network` of `constructor` writes `chain-id = "function Object() { [native code] }"` into `Published.toml` (F19) |
 | `npm run e2e:localnet` | **PASS 2026-10-10** against a local `sui start --with-faucet --force-regenesis` (sui 1.81.0): fixed-supply + frozen-metadata coin (no caps, registry records `Fixed` and a deleted MetadataCap); equal-constants publish; recovery; a second finalize refused by the chain without effect; listing; the generated `Move.lock`. The baseline probes of F1 and F8 were repeated as unit tests (`tests/template.test.ts`, `tests/package.test.ts`) |
 
@@ -488,7 +488,7 @@ effectively fixed, but cannot be proven through the registry.
 
 **Remediation / evidence (2026-10-09):** the template-level option was chosen and implemented.
 
-- `@meddleware/sui-token-template` 1.0.8 applies the policies in `init`: `INITIAL_SUPPLY` is minted to
+- `@meddleware/token-issuance-template-sui` 1.0.8 applies the policies in `init`: `INITIAL_SUPPLY` is minted to
   the publisher, `FIXED_SUPPLY` hands the TreasuryCap to the registry (`make_supply_fixed_init`), and
   `FROZEN_METADATA` runs `finalize_and_delete_metadata_cap`. The client patches the three constants
   (`patch.ts:165-181`, `patchTokenModule`), pins 1.0.8 exactly and no longer freezes or mints
@@ -671,7 +671,7 @@ and template defaults in every text field.
   scheduled run opens or refreshes one issue (`alert` job). `npm-publish.yml` gained a `localnet-gate` job
   (needed by `publish-npm`) that runs `.github/localnet-gate.mjs` over `gh run list`: a red newest run on
   main, no run, or a green one older than 72 h blocks the tag, and a run for the tagged commit is judged on
-  its own (the walrus-client gate, same semantics; `tests/localnet-gate.test.ts`, 7 tests). `node-ci.yml`
+  its own (the walrus-storage-client gate, same semantics; `tests/localnet-gate.test.ts`, 7 tests). `node-ci.yml`
   gained `node24-compat` (S7). Evidence: dispatched run 39783577436 on `main` at `599b277` passed
   (`e2e-localnet: OK`, sui 1.81.0) and the gate script returned "green for the tagged commit" on the real
   run list; actionlint clean.
@@ -836,7 +836,7 @@ success".
   - every failure after the publish executed is a `PublishedError`;
   - `DeployIncompleteError` carries `pending` for `finalizeToken`;
   - `DeployUnconfirmedError` says "do not retry";
-  - token-deployer-ui routes them away from the review step.
+  - token-issuance-ui routes them away from the review step.
 - **Bounded listing:** `listMyTokens` dedupes by coin type, throws past `maxPages` and past
   `maxHeldCoinTypes`, and surfaces a failed lookup (F5, F20).
 
@@ -887,15 +887,15 @@ publish in `e2e:localnet` is verified on-chain (2026-10-09).
 
 **Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit `994b951`; decision D34)
 **Where:** `package.json` `dependencies` (`@mysten/sui` `^2.33.1`); `README.md` install line
-(`npm install @meddleware/sui-token-client @mysten/sui`).
+(`npm install @meddleware/token-issuance-client @mysten/sui`).
 
 **Issue:**
 
 - TS-M9 (TS lens, 2026-10-08) requires `@mysten/*` packages that the host must share to be peer
-  dependencies, so a bundle holds one copy. access-gate-client, seal-client, walrus-client and
+  dependencies, so a bundle holds one copy. access-gate-client, sealed-storage-client, walrus-storage-client and
   wallet-adapter declare `@mysten/sui` as a peer (`^2.33.2`); this package declares it as a dependency
   with a lower floor (`^2.33.1`).
-- Today `npm ls` shows one copy in this repo (2.33.2) and token-deployer-ui declares `^2.34.0`, so the
+- Today `npm ls` shows one copy in this repo (2.33.2) and token-issuance-ui declares `^2.34.0`, so the
   ranges overlap and npm dedupes. Nothing enforces that: a host pinning an older or newer major would get
   a second `@mysten/sui`, and `Transaction` instances built here would then be signed by another copy.
 - The README already tells the user to install `@mysten/sui` themselves.
@@ -981,7 +981,7 @@ wrong: it is either complete or an error.
 
 **Remediation / evidence (ACCEPTED-RISK):** the alternative is a silent partial list, which the "no silent
 truncation" invariant forbids. Callers can raise `maxHeldCoinTypes` or catch the error and fall back to the
-capability-based rows. Not verified here: how token-deployer-ui presents the error (its own audit).
+capability-based rows. Not verified here: how token-issuance-ui presents the error (its own audit).
 
 **Re-evaluated 2026-10-10 (OQ4):** no single best-practice fix exists. A cheaper read does not exist (the publisher
 of a package is only known from its publishing transaction), a silent skip breaks the no-truncation invariant, and
@@ -993,7 +993,7 @@ choice). Left ACCEPTED-RISK; the options and the recommendation are in OQ4.
 **Severity:** Info   **Disposition:** RESOLVED (0.0.11, commit `994b951`; found 2026-10-10)
 **Where:** `src/package.ts` `buildPackageFiles`; `scripts/gen-template.mjs` `FILES`.
 
-**Issue:** `@meddleware/sui-token-template` 1.0.9 ships `Move.lock` (the framework revision it was built and tested
+**Issue:** `@meddleware/token-issuance-template-sui` 1.0.9 ships `Move.lock` (the framework revision it was built and tested
 with) and its CLI generator copies it into every generated package with the root package pin renamed. The
 client's source package did not, so a downloaded package resolved the framework at whatever the toolchain
 picked, not the revision the shipped bytecode was built against.
@@ -1042,12 +1042,12 @@ framework pin": only the root pin changes, the revision equals the template's, z
 | A26 | SC: network / chain binding | the caller owns the RPC client and the wallet chain; `network` labels the result; chain ids written into `Published.toml` match each network | live drift test; localnet gets no `Published.toml` | HOLDS (code-only) |
 | A27 | SC: value encoding | amounts are `bigint`; the supply is scaled as a `bigint` and checked against u64 in `rules.ts` and `patch.ts`; the recipient and fee recipient must be full 66-character addresses; `tokens.ts` compares normalised addresses | `rules.test.ts`, `transactions.test.ts` | HOLDS — `transactions.ts` compares the sender and the recipient with `normalizeSuiAddress` since 0.0.11 (S6) |
 | A28 | SC: funds in the PTB | one `splitCoins(tx.gas, [fee])` to the recipient, the UpgradeCap or `make_immutable`, and the `transferObjects` of what `init` created; nothing else moves | `transactions.test.ts` (exact commands) | HOLDS |
-| A29 | SC: capabilities and irreversible operations | `make_immutable` consumes the UpgradeCap only under the `immutable` policy, in the publish PTB the user signs; the UI confirmation lives in token-deployer-ui | `transactions.test.ts` | HOLDS |
+| A29 | SC: capabilities and irreversible operations | `make_immutable` consumes the UpgradeCap only under the `immutable` policy, in the publish PTB the user signs; the UI confirmation lives in token-issuance-ui | `transactions.test.ts` | HOLDS |
 | A30 | SC: execution result | `assertSuccess`; `waitForTransaction` before the finalize and before returning; a wait failure is `DeployIncompleteError` / `DeployUnconfirmedError`, never swallowed | `deploy.test.ts` | HOLDS |
 | A31 | SC: read parsing | struct tags parsed and normalised, never matched by suffix; missing type or field fails closed | `typeNames.test.ts`, `transactions.test.ts` | HOLDS |
 | A32 | SC: events, off-chain signature verification, dry-run PTBs | none used | n/a | N/A |
 | A33 | SC: client-side publish | pinned and hash-checked bytecode; patcher post-condition; UpgradeCap policy in the publish PTB; created ids by exact type; two-phase recovery; layered injection guards | F1, F2, F13, F14, F16 | HOLDS |
-| A34 | SC: chain-access layering (ADR-0001) | this package is the single domain client for the token template; the consumer keeps UI and wallet wiring | token-deployer-ui `package.json`/`CLAUDE.md` | HOLDS |
+| A34 | SC: chain-access layering (ADR-0001) | this package is the single domain client for the token template; the consumer keeps UI and wallet wiring | token-issuance-ui `package.json`/`CLAUDE.md` | HOLDS |
 
 ---
 
@@ -1062,7 +1062,7 @@ framework pin": only the root pin changes, the revision equals the template's, z
 | `@mysten/sui` | peer `^2.33.2` (dev 2.33.2) | PTBs, types, BCS | clean | a peer since 0.0.11, as in the sibling SDKs (F17) |
 | `@mysten/move-bytecode-template` | `~0.4.1` (0.4.1) | patching (wasm); a load failure surfaces and the next call retries | clean | round trip checked at generation; decoded post-check at patch time (F1) |
 | `fflate` | `^0.8.3` (0.8.3) | zip | clean | |
-| `@meddleware/sui-token-template` (dev) | `1.0.9` exact | artefact generation | provenance | hashes checked by `check:template` |
+| `@meddleware/token-issuance-template-sui` (dev) | `1.0.9` exact | artefact generation | provenance | hashes checked by `check:template` |
 | Sui full nodes (public) | n/a | `test:integration` and the caller's executor | n/a | the library makes no RPC calls except the reads of `listMyTokens`, through the caller's client; all fail closed |
 
 **TS lens shared-dependency matrix row:**
@@ -1070,7 +1070,7 @@ framework pin": only the root pin changes, the revision equals the template's, z
 | Package | dependency | devDependency | peer |
 | --- | --- | --- | --- |
 | `@mysten/sui` | — | `^2.33.2` (tests) | `^2.33.2` (F17) |
-| `@mysten/move-bytecode-template` | `~0.4.1` (third-party wasm helper; the same range in token-deployer-ui) | — | — |
+| `@mysten/move-bytecode-template` | `~0.4.1` (third-party wasm helper; the same range in token-issuance-ui) | — | — |
 | `typescript` / `vitest` | — | `~6.0.3` / `~5.0.2` (installed 6.0.3 / 5.0.3) | — |
 
 #### B.TS-1 Packaging
@@ -1103,7 +1103,7 @@ framework pin": only the root pin changes, the revision equals the template's, z
 
 | Authority | Where | Custody | Gates |
 | --- | --- | --- | --- |
-| npm publish `@meddleware/sui-token-client` | `npm-publish.yml` (tag `v*`) | OIDC trusted publishing; `--provenance` | releases |
+| npm publish `@meddleware/token-issuance-client` | `npm-publish.yml` (tag `v*`) | OIDC trusted publishing; `--provenance` | releases |
 | Fee treasury | consumer configuration | app (build-time guard) plus the library's address check | per-deploy fee |
 | Capabilities of published coins | created by the coin's `init` | the recipient (or the sender); the registry holds a fixed supply's cap; the UpgradeCap goes to the recipient or is burned | per coin |
 
@@ -1131,7 +1131,7 @@ framework pin": only the root pin changes, the revision equals the template's, z
 | `transactions.ts:18-19` | `0x1`, `0x2` | system packages | protocol |
 | `transactions.ts:120` | `0xc` | coin registry | protocol |
 | `package.ts` (`CHAIN_IDS`) | testnet `4c78adac`, mainnet `35834a8a` | chain ids in `Published.toml` | live integration test (weekly) |
-| `artifact.ts` | template module and hashes | bytecode | `sui-token-template@1.0.9` |
+| `artifact.ts` | template module and hashes | bytecode | `token-issuance-template-sui@1.0.9` |
 
 No first-party package id is held: the table needs no per-network original-id / published-at record.
 
@@ -1180,7 +1180,7 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
 | Unit | 12 files, 156 tests | yes (`node-ci.yml`, on Node 26 and, as `node24-compat`, on Node 24; and the publish `verify`) | `npm test` |
 | Live read (ABI drift + chain ids, testnet and mainnet) | `tests/integration/abi-drift.integration.test.ts` (6 tests) | yes, weekly (`live.yml`) | `GRPC_TESTNET=1` (`npm run test:integration`) |
 | Localnet e2e (deploy, registry state of fixed/frozen coins, equal-constants publish, refused-finalize recovery, refused second finalize, listing, balance, package) | `scripts/e2e-localnet.mjs` | yes, nightly (`localnet.yml`; PASS 2026-10-22, run 39783577436) and as a release gate (`localnet-gate` in `npm-publish.yml`) | needs `sui start --with-faucet` (the workflow starts it with the pinned 1.81.0); `E2E_ALLOW_PUBLIC=1` overrides the public-network guard |
-| Real-chain deploy (testnet / mainnet) | token-deployer-ui `e2e:*` | manual, in the consumer | the consumer's own gates |
+| Real-chain deploy (testnet / mainnet) | token-issuance-ui `e2e:*` | manual, in the consumer | the consumer's own gates |
 
 ### C.2 Hermetic vs. live paths
 
@@ -1245,14 +1245,14 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
 - **Deployment readiness:** Section D is current; the one unticked item is the external review
   (maintainer-only).
 - **Chain-access layering (ADR-0001):** this is the domain client for the token template. The consumer
-  keeps only UI and wallet wiring (token-deployer-ui 0.0.36 pins `^0.0.11` since 2026-10-18; 0.0.35 pinned `^0.0.10`); IDs are framework constants.
+  keeps only UI and wallet wiring (token-issuance-ui 0.0.36 pins `^0.0.11` since 2026-10-18; 0.0.35 pinned `^0.0.10`); IDs are framework constants.
 - **Pre-v0.2 policy:** every fix since the baseline was a patch bump that changed exported behaviour without
   shims (0.0.6, 0.0.9, 0.0.10 and 0.0.11 are marked breaking in the CHANGELOG). F11, F17-F19 and F21 shipped
-  in 0.0.11; token-deployer-ui follows with `^0.0.11` (done, 0.0.36; it already declared `@mysten/sui` `^2.34.0`).
+  in 0.0.11; token-issuance-ui follows with `^0.0.11` (done, 0.0.36; it already declared `@mysten/sui` `^2.34.0`).
 - **Shared with sibling audits:**
   - access-gate-client F9 (`@mysten/sui` as a peer: fixed there, fixed here as F17 in 0.0.11);
-  - walrus-client F7 (recovery that can double-charge or double-act: resolved here as F3);
-  - sui-token-template audit F6 (registry policies, closed by template 1.0.8), F7 (`Move.lock`: the client half is
+  - walrus-storage-client F7 (recovery that can double-charge or double-act: resolved here as F3);
+  - token-issuance-template-sui audit F6 (registry policies, closed by template 1.0.8), F7 (`Move.lock`: the client half is
     F21 here) and F9 (client coupling);
   - token-deployer-sui predecessor F4 and F5 (resolved: F14).
 
@@ -1353,7 +1353,7 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
    capability-based rows plus an `incomplete: true` marker for the capability-less part, which changes the
    return type and every caller; (c) raise the default limit, which only moves the cliff and the read cost.
    Recommendation: keep (a). The caller already has the escape hatches (`maxHeldCoinTypes`, or catch and show the
-   capability rows), and (b) is a consumer-contract decision for token-deployer-ui's owner.
+   capability rows), and (b) is a consumer-contract decision for token-issuance-ui's owner.
    *(Decided 2026-10-22: keep (a), fail closed — complete or an error. No change.)*
 5. **OQ5** S7: which `engines` value should the SDK packages declare (`^22.18.0 || >=24.12.0` as the apps do, or
    `>=24`)? Recommendation: decide once for the fleet, then add it here in a patch.
@@ -1423,12 +1423,12 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
     the TS and SC lens categories (GAP rows: A22 F19, A23 F11). Section D ticked with evidence; the
     unticked items are F17 and F11 (next patch) and the external review (maintainer-only,
     `OPERATOR_TASKS.md`).
-  - **Not verified:** the second-finalize rejection against a real chain (S5); how token-deployer-ui
+  - **Not verified:** the second-finalize rejection against a real chain (S5); how token-issuance-ui
     shows the `listMyTokens` limit error (F20; its own audit).
   - Pre-save consistency checklist re-run (below).
 
 - 2026-10-10 — Fix wave for 0.0.11 (local commit `994b951`; not released) against template 1.0.9.
-  - **Done:** re-pinned `@meddleware/sui-token-template` to 1.0.9 and regenerated `src/template` (`check:template`
+  - **Done:** re-pinned `@meddleware/token-issuance-template-sui` to 1.0.9 and regenerated `src/template` (`check:template`
     passes; hashes unchanged, `files.ts` now also carries `Move.lock` and the new `publish.sh`); **F21 found and
     RESOLVED** (generated packages now carry `Move.lock` with the root pin renamed: the client half of template
     audit F7); **F11, F17, F18, F19 RESOLVED**; S5 and S6 implemented; F20 re-evaluated, stays ACCEPTED-RISK
@@ -1440,13 +1440,13 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
     97.92 / 90.97 / 100 / 99.17 (plugin installed `--no-save`, then removed).
   - **Lookups checked (F19):** every record or object indexed by a caller or node value in `src`
     (`CHAIN_IDS`, the patcher's `rename`, `toSuiTxResult`'s `types`); the rest use fixed internal keys.
-  - **Next:** release 0.0.11 (tag after the orchestrator's review), then token-deployer-ui `^0.0.11`. Template
+  - **Next:** release 0.0.11 (tag after the orchestrator's review), then token-issuance-ui `^0.0.11`. Template
     audit F7 can move to RESOLVED citing 0.0.11 (`tests/package.test.ts` "Move.lock carries the template
     framework pin", `scripts/e2e-localnet.mjs`, F21 here).
   - Pre-save consistency checklist re-run (below).
-- 2026-10-18 — released (0.0.11), consumers bumped (token-deployer-ui 0.0.36 on `^0.0.11`). `npm view` shows
-  `@meddleware/sui-token-client` 0.0.11 as `latest`, published 2026-10-10T14:54Z, with SLSA v1 provenance
-  (`dist.attestations`); tag `v0.0.11` = `616b7ac`. It pins `@meddleware/sui-token-template` 1.0.9 exactly (also
+- 2026-10-18 — released (0.0.11), consumers bumped (token-issuance-ui 0.0.36 on `^0.0.11`). `npm view` shows
+  `@meddleware/token-issuance-client` 0.0.11 as `latest`, published 2026-10-10T14:54Z, with SLSA v1 provenance
+  (`dist.attestations`); tag `v0.0.11` = `616b7ac`. It pins `@meddleware/token-issuance-template-sui` 1.0.9 exactly (also
   released). The "Next" item of the 2026-10-10 entry is done. No Section D box waited only on the release.
 - 2026-10-19 — dependency-bot status checked (read-only): `.github/dependabot.yml` carries the `ignore` rules and the repository has no open Dependabot pull requests (`gh pr list`, 2026-10-19). Versions, findings and gates were not re-examined in this pass.
   - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
@@ -1466,3 +1466,4 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
 - [x] Executive summary matches the dispositions and the ceiling (Info; F20 the one open finding).
 - [x] Counts and versions re-measured 2026-10-10 (tests, coverage, pack, template); provenance as of 2026-10-09.
 - [x] Re-verification log entry added.
+- 2026-10-24 — repository renamed from `sui-token-client` to `token-issuance-client` (workspace naming convention, `docs/architecture/ADR-0003-naming.md`): package, image, host and path names updated throughout. No finding, disposition or evidence changed.

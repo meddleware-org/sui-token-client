@@ -33,7 +33,7 @@ jobs:
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
-      - name: Template artefact matches @meddleware/sui-token-template
+      - name: Template artefact matches @meddleware/token-issuance-template-sui
         run: npm run check:template
 
       - name: Type-check

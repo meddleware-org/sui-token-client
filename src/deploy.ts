@@ -1,4 +1,4 @@
-// @meddleware/sui-token-client/deploy — patch → publish → confirm → finalize → result, decoupled
+// @meddleware/token-issuance-client/deploy — patch → publish → confirm → finalize → result, decoupled
 // from any wallet through an `Executor`.
 
 import type { Transaction } from '@mysten/sui/transactions'

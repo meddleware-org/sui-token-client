@@ -1,13 +1,13 @@
-# @meddleware/sui-token-client
+# @meddleware/token-issuance-client
 
-Deploy Sui coins from [`@meddleware/sui-token-template`](https://github.com/meddleware-org/sui-token-template)
+Deploy Sui coins from [`@meddleware/token-issuance-template-sui`](https://github.com/meddleware-org/token-issuance-template-sui)
 without the Sui CLI: the Move rules, the compiled template and its patcher, the publish and finalize
 transactions, publish-result parsing, owned-token discovery, and the downloadable source package.
 
 ## Install
 
 ```bash
-npm install @meddleware/sui-token-client @mysten/sui
+npm install @meddleware/token-issuance-client @mysten/sui
 ```
 
 `@mysten/sui` (`^2.33.2`) is a peer dependency: install it in the host so the bundle holds one copy, and the `Transaction` this package builds is signed by the same SDK.
@@ -16,18 +16,18 @@ npm install @meddleware/sui-token-client @mysten/sui
 
 | Import | Contents |
 | --- | --- |
-| `@meddleware/sui-token-client` | `TokenConfig` and friends, `assertTokenConfig`, `TOKEN_LIMITS`, the identifier/supply/icon rules, `buildPublishTransaction`, `buildFinalizeTransaction`, `extractPublishResult`, `toSuiTxResult`, `listMyTokens`, exact type helpers |
-| `@meddleware/sui-token-client/template` | `configureTemplateWasm`, `initTemplateWasm`, `patchTemplateModule`, `patchTokenModule`, the generated `TEMPLATE_*` artefact and `TEMPLATE_BUILD_INFO` |
-| `@meddleware/sui-token-client/deploy` | `deployToken`, `finalizeToken`, `PublishedError`, `DeployIncompleteError`, `DeployUnconfirmedError`, `Executor`, `DeployStep` |
-| `@meddleware/sui-token-client/package` | `buildPackageFiles`, `generatePackageZip` |
+| `@meddleware/token-issuance-client` | `TokenConfig` and friends, `assertTokenConfig`, `TOKEN_LIMITS`, the identifier/supply/icon rules, `buildPublishTransaction`, `buildFinalizeTransaction`, `extractPublishResult`, `toSuiTxResult`, `listMyTokens`, exact type helpers |
+| `@meddleware/token-issuance-client/template` | `configureTemplateWasm`, `initTemplateWasm`, `patchTemplateModule`, `patchTokenModule`, the generated `TEMPLATE_*` artefact and `TEMPLATE_BUILD_INFO` |
+| `@meddleware/token-issuance-client/deploy` | `deployToken`, `finalizeToken`, `PublishedError`, `DeployIncompleteError`, `DeployUnconfirmedError`, `Executor`, `DeployStep` |
+| `@meddleware/token-issuance-client/package` | `buildPackageFiles`, `generatePackageZip` |
 
 The main entry loads no wasm, bytecode or zip code, so lists and forms stay light.
 
 ## Deploy a coin
 
 ```ts
-import { deployToken, toSuiTxResult } from '@meddleware/sui-token-client/deploy'
-import { configureTemplateWasm } from '@meddleware/sui-token-client/template'
+import { deployToken, toSuiTxResult } from '@meddleware/token-issuance-client/deploy'
+import { configureTemplateWasm } from '@meddleware/token-issuance-client/template'
 import wasmUrl from '@mysten/move-bytecode-template/web/move_bytecode_template_bg.wasm?url' // Vite
 
 configureTemplateWasm(wasmUrl) // browsers only; Node loads its own wasm
@@ -65,7 +65,7 @@ throws `DeployIncompleteError`. Its `pending` field finishes the setup later —
 retry:
 
 ```ts
-import { DeployIncompleteError, finalizeToken } from '@meddleware/sui-token-client/deploy'
+import { DeployIncompleteError, finalizeToken } from '@meddleware/token-issuance-client/deploy'
 
 try {
   await deployToken({ /* … */ })
@@ -98,7 +98,7 @@ setup executed but was not confirmed — show its `result`; do not retry.
 ## Owned tokens
 
 ```ts
-import { listMyTokens } from '@meddleware/sui-token-client'
+import { listMyTokens } from '@meddleware/token-issuance-client'
 const tokens = await listMyTokens(client, owner) // every page; throws past maxPages
 ```
 
@@ -115,7 +115,7 @@ by me". The result of `deployToken` is the authoritative record of what a sessio
 ## The template artefact
 
 `src/template/artifact.ts` and `src/template/files.ts` are generated from the pinned
-`@meddleware/sui-token-template` by `npm run gen:template`, which checks the template's recorded
+`@meddleware/token-issuance-template-sui` by `npm run gen:template`, which checks the template's recorded
 hashes and a byte-exact round trip. `TEMPLATE_BUILD_INFO` records the toolchain and framework that
 built the module.
 

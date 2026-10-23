@@ -1,10 +1,10 @@
-# AGENTS.md — @meddleware/sui-token-client
+# AGENTS.md — @meddleware/token-issuance-client
 
 ## Package identity
 
 | Field | Value |
 | --- | --- |
-| npm name | `@meddleware/sui-token-client` |
+| npm name | `@meddleware/token-issuance-client` |
 | Version | `0.0.12` |
 | Licence | 0BSD |
 | Type | TypeScript source package (declaration-only build) |
@@ -26,7 +26,7 @@ src/
 ├── template/         — subpath ./template: wasm set-up, patcher, GENERATED artifact.ts + files.ts
 ├── deploy.ts         — subpath ./deploy: deployToken, Executor, DeployStep
 └── package.ts        — subpath ./package: buildPackageFiles, generatePackageZip
-scripts/gen-template.mjs — writes/checks src/template/{artifact,files}.ts from @meddleware/sui-token-template
+scripts/gen-template.mjs — writes/checks src/template/{artifact,files}.ts from @meddleware/token-issuance-template-sui
 scripts/e2e-localnet.mjs — real deploy against `sui start --with-faucet --force-regenesis`
 tests/                — vitest unit tests
 ```
@@ -47,6 +47,6 @@ tests/                — vitest unit tests
 
 - Read [CLAUDE.md](CLAUDE.md) first; its invariants are binding.
 - Never hand-edit `src/template/artifact.ts` or `src/template/files.ts`; bump the exact
-  `@meddleware/sui-token-template` devDependency and run `npm run gen:template`.
+  `@meddleware/token-issuance-template-sui` devDependency and run `npm run gen:template`.
 - Releases: bump `version`, push, tag `v<version>`. `npm-publish.yml` publishes via npm trusted
   publishing.

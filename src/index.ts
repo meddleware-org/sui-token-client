@@ -1,4 +1,4 @@
-// @meddleware/sui-token-client — deploy coins from @meddleware/sui-token-template.
+// @meddleware/token-issuance-client — deploy coins from @meddleware/token-issuance-template-sui.
 //
 // Entry points (each loads only what it needs):
 //   .           types, Move rules, transaction builders, publish-result parsing, listMyTokens

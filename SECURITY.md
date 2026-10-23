@@ -2,7 +2,7 @@
 
 ## Scope
 
-This policy covers the `@meddleware/sui-token-client` package source (`src/**`):
+This policy covers the `@meddleware/token-issuance-client` package source (`src/**`):
 
 - the token rules and their enforcement;
 - the template patcher and the generated template artefact;
@@ -12,8 +12,8 @@ This policy covers the `@meddleware/sui-token-client` package source (`src/**`):
 
 It does not cover:
 
-- the `sui-token-template` Move package (see that repo's `SECURITY.md`);
-- the token deployer app, its fee configuration and wallet wiring;
+- the `token-issuance-template-sui` Move package (see that repo's `SECURITY.md`);
+- the token issuance app, its fee configuration and wallet wiring;
 - the `@mysten/sui` and `@mysten/move-bytecode-template` packages (report upstream to
   [Mysten Labs](https://github.com/MystenLabs));
 - the caller-supplied wallet, signer and RPC endpoint.

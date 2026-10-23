@@ -7,13 +7,13 @@ import tseslint from 'typescript-eslint'
 export default defineConfig(
   globalIgnores(['**/dist/**', '**/coverage/**', '**/*.d.ts']),
   {
-    name: 'sui-token-client/typescript',
+    name: 'token-issuance-client/typescript',
     files: ['**/*.{ts,mts,tsx}'],
     extends: [tseslint.configs.recommended],
   },
 
   {
-    name: 'sui-token-client/overrides',
+    name: 'token-issuance-client/overrides',
     files: ['**/*.{ts,mts,tsx}'],
     rules: {
       // Underscore-prefixed args/vars are an intentional "unused" marker; rest-sibling

@@ -56,7 +56,7 @@ const config = {
   structName: '',
   symbol: 'E2E',
   name: 'E2E Token',
-  description: 'sui-token-client localnet check',
+  description: 'token-issuance-client localnet check',
   iconUrl: 'https://example.com/e2e.png',
   decimals: 6,
   initialSupply: 1_000n,

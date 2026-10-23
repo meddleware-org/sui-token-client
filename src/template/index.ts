@@ -1,4 +1,4 @@
-// @meddleware/sui-token-client/template — the compiled template module and its patcher. Kept
+// @meddleware/token-issuance-client/template — the compiled template module and its patcher. Kept
 // apart from the main entry so the wasm and the bytecode load only where a deploy happens.
 
 export {

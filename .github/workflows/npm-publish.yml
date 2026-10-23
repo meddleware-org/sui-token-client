@@ -45,7 +45,7 @@ jobs:
             --json conclusion,headSha,url,createdAt,event | node .github/localnet-gate.mjs
 
   publish-npm:
-    name: npmjs (@meddleware/sui-token-client)
+    name: npmjs (@meddleware/token-issuance-client)
     needs: [verify, localnet-gate]
     runs-on: ubuntu-latest
     permissions:
