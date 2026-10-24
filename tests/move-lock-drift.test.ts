@@ -33,7 +33,7 @@ async function renderWithLock(lock: string) {
 }
 
 describe('Move.lock template drift', () => {
-  const root = '[pinned.testnet.sui_token_template]'
+  const root = '[pinned.testnet.token_issuance_template]'
 
   it('refuses a lock without the root package pin', async () => {
     expect(await renderWithLock('[move]\nversion = 4\n')).toThrow(/exactly one line/)
@@ -44,7 +44,7 @@ describe('Move.lock template drift', () => {
   })
 
   it('refuses a lock that still names the template elsewhere', async () => {
-    expect(await renderWithLock(`${root}\ndeps = { x = "sui_token_template" }\n`)).toThrow(/still in Move.lock/)
+    expect(await renderWithLock(`${root}\ndeps = { x = "token_issuance_template" }\n`)).toThrow(/still in Move.lock/)
   })
 
   it('renders a well-formed lock', async () => {

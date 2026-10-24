@@ -1467,3 +1467,4 @@ line are rendered in the same literal pass (F18, 0.0.11); the generated `Move.lo
 - [x] Counts and versions re-measured 2026-10-10 (tests, coverage, pack, template); provenance as of 2026-10-09.
 - [x] Re-verification log entry added.
 - 2026-10-24 — repository renamed from `sui-token-client` to `token-issuance-client` (workspace naming convention, `docs/architecture/ADR-0003-naming.md`): package, image, host and path names updated throughout. No finding, disposition or evidence changed.
+- 2026-10-24 — identifier alignment (`docs/architecture/ADR-0004-identifier-alignment.md`): patches the renamed template identifiers; 156 tests pass; `e2e:localnet` OK (publish, finalize, fixed/frozen, recovery, generation) against template 1.0.11.

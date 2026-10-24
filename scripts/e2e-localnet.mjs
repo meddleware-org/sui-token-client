@@ -104,7 +104,7 @@ if (!result.metadataCapId || !result.treasuryCapId) fail('a mintable, updatable 
 const files = buildPackageFiles({ config: { ...config, structName: 'E2ETOKEN' }, result })
 if (files['Published.toml']) fail('a localnet result must not produce Published.toml')
 if (!files['deployments.md'].includes(result.packageId)) fail('deployments.md lacks the package id')
-if (!files['Move.lock']?.includes('[pinned.testnet.e2e_token]') || files['Move.lock'].includes('sui_token_template')) fail('Move.lock does not pin the generated package')
+if (!files['Move.lock']?.includes('[pinned.testnet.e2e_token]') || files['Move.lock'].includes('token_issuance_template')) fail('Move.lock does not pin the generated package')
 
 // Fixed supply + frozen metadata: init applies both in the publish transaction, so no cap ever exists and
 // the registry records them (wallets and explorers read these).

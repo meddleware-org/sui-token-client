@@ -26,7 +26,7 @@ const fail = (msg) => {
   process.exit(1)
 }
 
-const IDENTIFIERS = { module: 'sui_token_template', struct: 'SUI_TOKEN_TEMPLATE' }
+const IDENTIFIERS = { module: 'token_issuance_template', struct: 'TOKEN_ISSUANCE_TEMPLATE' }
 const DEFAULTS = {
   decimals: 9,
   symbol: 'TEMPLATE_SYMBOL',
@@ -39,9 +39,9 @@ const DEFAULTS = {
   frozenMetadata: false,
 }
 
-const mv = read('bytecode/sui_token_template.mv')
+const mv = read('bytecode/token_issuance_template.mv')
 const info = JSON.parse(read('bytecode/build-info.json').toString('utf8'))
-const source = read('sources/sui_token_template.move').toString('utf8')
+const source = read('sources/token_issuance_template.move').toString('utf8')
 
 if (sha(mv) !== info.moduleSha256) fail('bytecode hash differs from build-info.json moduleSha256')
 if (sha(source) !== info.sourceSha256) fail('source hash differs from build-info.json sourceSha256')
@@ -138,7 +138,7 @@ export const TEMPLATE_DEFAULTS = Object.freeze({
 const FILES = {
   'Move.toml': 'Move.toml',
   'Move.lock': 'Move.lock',
-  'source.move': 'sources/sui_token_template.move',
+  'source.move': 'sources/token_issuance_template.move',
   'scripts/publish.sh': 'templates/publish.sh',
   '.gitignore': 'templates/gitignore',
   'README.md': 'templates/README.md',

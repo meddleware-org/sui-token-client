@@ -37,7 +37,7 @@ const bad = (over: Partial<TokenConfig>) => () => assertTokenConfig({ ...good, .
 describe('deriveStructName', () => {
   it('uppercases the module name (Sui OTW rule)', () => {
     expect(deriveStructName('mwsui')).toBe('MWSUI')
-    expect(deriveStructName('sui_token_template')).toBe('SUI_TOKEN_TEMPLATE')
+    expect(deriveStructName('token_issuance_template')).toBe('TOKEN_ISSUANCE_TEMPLATE')
   })
 })
 

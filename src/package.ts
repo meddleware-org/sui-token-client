@@ -76,21 +76,21 @@ function spdxId(license: string): string {
  * @throws {Error} if the template's lock does not hold exactly that one line (template drift).
  */
 function renderMoveLock(cfg: TokenConfig): string {
-  const rootPin = '[pinned.testnet.sui_token_template]'
+  const rootPin = '[pinned.testnet.token_issuance_template]'
   const lines = TEMPLATE_FILES['Move.lock'].split('\n')
   if (lines.filter((l) => l === rootPin).length !== 1) {
     throw new Error(`template drift: expected exactly one line '${rootPin}' in Move.lock`)
   }
   const out = lines.map((l) => (l === rootPin ? `[pinned.testnet.${cfg.packageName}]` : l)).join('\n')
-  if (cfg.packageName !== 'sui_token_template' && out.includes('sui_token_template')) {
-    throw new Error("template drift: the template identifier 'sui_token_template' is still in Move.lock")
+  if (cfg.packageName !== 'token_issuance_template' && out.includes('token_issuance_template')) {
+    throw new Error("template drift: the template identifier 'token_issuance_template' is still in Move.lock")
   }
   return out
 }
 
 /** Move.toml: package name + license field. */
 function renderMoveToml(cfg: TokenConfig): string {
-  let out = replaceAll(TEMPLATE_FILES['Move.toml'], 'sui_token_template', cfg.packageName)
+  let out = replaceAll(TEMPLATE_FILES['Move.toml'], 'token_issuance_template', cfg.packageName)
   out = out.replace(/^license = .*$/m, `license = "${spdxId(cfg.license)}"`)
   return out
 }
@@ -112,8 +112,8 @@ function renderSource(cfg: TokenConfig): string {
 
   // One pass: user values are never re-scanned for template keys.
   return replaceMany(out, {
-    'module sui_token_template::sui_token_template;': `module ${cfg.packageName}::${cfg.moduleName};`,
-    SUI_TOKEN_TEMPLATE: cfg.structName,
+    'module token_issuance_template::token_issuance_template;': `module ${cfg.packageName}::${cfg.moduleName};`,
+    TOKEN_ISSUANCE_TEMPLATE: cfg.structName,
     XPACKAGEDESCRIPTIONX: cfg.packageDescription,
     XMODULENAMEX: cfg.moduleName,
     'const DECIMALS: u8 = 9;': `const DECIMALS: u8 = ${cfg.decimals};`,
@@ -130,7 +130,7 @@ function renderSource(cfg: TokenConfig): string {
 /** The helper script: one pass, so a value that equals another key (a module `xmodulenamex`) is not rewritten. */
 function renderPublishScript(cfg: TokenConfig): string {
   return replaceMany(TEMPLATE_FILES['scripts/publish.sh'], {
-    SUI_TOKEN_TEMPLATE: cfg.structName,
+    TOKEN_ISSUANCE_TEMPLATE: cfg.structName,
     XMODULENAMEX: cfg.moduleName,
     XPACKAGENAMEX: cfg.packageName,
     XMETADATAPOLICYX: cfg.metadataPolicy,

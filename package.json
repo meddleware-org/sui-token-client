@@ -1,6 +1,6 @@
 {
   "name": "@meddleware/token-issuance-client",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "homepage": "https://dev.meddleware.co.uk/sui/",
   "type": "module",
   "description": "Sui token client for @meddleware/token-issuance-template-sui: Move rules, bytecode patching, publish/finalize PTBs, result parsing, owned-token listing and package generation.",
@@ -62,7 +62,7 @@
     "fflate": "^0.8.3"
   },
   "devDependencies": {
-    "@meddleware/token-issuance-template-sui": "1.0.10",
+    "@meddleware/token-issuance-template-sui": "1.0.11",
     "@mysten/sui": "^2.33.2",
     "@types/node": "~26.6.5",
     "eslint": "^10.11.0",

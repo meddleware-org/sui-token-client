@@ -39,10 +39,10 @@ const REQUIRED = [
 
 describe('rendered source and docs are one-pass (F1)', () => {
   it('a value containing another template key is not rewritten', () => {
-    const cfg = { ...baseConfig, packageDescription: 'About XMODULENAMEX and SUI_TOKEN_TEMPLATE', description: 'see XSYMBOLX' }
+    const cfg = { ...baseConfig, packageDescription: 'About XMODULENAMEX and TOKEN_ISSUANCE_TEMPLATE', description: 'see XSYMBOLX' }
     const f = buildPackageFiles({ config: cfg })
     const src = f['sources/mytoken.move'] as string
-    expect(src).toContain('About XMODULENAMEX and SUI_TOKEN_TEMPLATE')
+    expect(src).toContain('About XMODULENAMEX and TOKEN_ISSUANCE_TEMPLATE')
     expect(src).toContain('b"see XSYMBOLX"')
     expect(src).toContain('b"MTK"')
     expect(src).toContain('b"My Token"')
@@ -73,7 +73,7 @@ describe('buildPackageFiles', () => {
     for (const [path, content] of Object.entries(f)) {
       if (path === 'LICENSE') continue
       expect(content, `${path} X…X`).not.toMatch(/X[A-Z_]+X/)
-      expect(content, `${path} sui_token_template`).not.toContain('sui_token_template')
+      expect(content, `${path} token_issuance_template`).not.toContain('token_issuance_template')
       expect(content, `${path} TEMPLATE_ default`).not.toMatch(/TEMPLATE_(SYMBOL|NAME|DESCRIPTION|ICON_URL)/)
     }
   })
@@ -270,7 +270,7 @@ describe('Move.lock carries the template framework pin (template F7)', () => {
   it('renames only the root package pin', () => {
     const out = lock()
     expect(out).toContain('[pinned.testnet.my_token]')
-    expect(out).not.toContain('sui_token_template')
+    expect(out).not.toContain('token_issuance_template')
     expect(out).toContain('[pinned.testnet.MoveStdlib]')
     expect(out).toContain('[pinned.testnet.Sui]')
   })
@@ -280,7 +280,7 @@ describe('Move.lock carries the template framework pin (template F7)', () => {
     const out = lock().split('\n')
     expect(out).toHaveLength(template.length)
     const changed = out.flatMap((l, i) => (l === template[i] ? [] : [[template[i], l]]))
-    expect(changed).toEqual([['[pinned.testnet.sui_token_template]', '[pinned.testnet.my_token]']])
+    expect(changed).toEqual([['[pinned.testnet.token_issuance_template]', '[pinned.testnet.my_token]']])
   })
 
   it('keeps the framework revision of the template', () => {

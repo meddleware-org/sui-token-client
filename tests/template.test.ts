@@ -32,8 +32,8 @@ describe('patchTemplateModule', () => {
     // identifiers renamed; template identifiers gone
     expect(back.identifiers).toContain('mycoin')
     expect(back.identifiers).toContain('MYCOIN')
-    expect(back.identifiers).not.toContain('sui_token_template')
-    expect(back.identifiers).not.toContain('SUI_TOKEN_TEMPLATE')
+    expect(back.identifiers).not.toContain('token_issuance_template')
+    expect(back.identifiers).not.toContain('TOKEN_ISSUANCE_TEMPLATE')
 
     // constants patched
     expect(back.constant_pool.some((c) => c.type_ === 'U8' && c.data[0] === 6)).toBe(true)
